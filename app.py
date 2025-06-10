@@ -20,24 +20,63 @@ from w1thermsensor import W1ThermSensor, NoSensorFoundError, SensorNotReadyError
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import math
+from logging.handlers import RotatingFileHandler  # For log rotation
+from threading import Lock
 
 app = Flask(__name__)
 
-# Setup logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('app.log')
-    ]
-)
+# Ensure the 'log' directory exists and is writable
+log_dir = 'log'
+try:
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+        print(f"Created log directory: {log_dir}")  # Print to console for immediate feedback
+    # Verify write permissions
+    if not os.access(log_dir, os.W_OK):
+        raise PermissionError(f"No write permissions for log directory: {log_dir}")
+except Exception as e:
+    print(f"Error setting up log directory: {e}")
+    # Fallback to console-only logging if directory setup fails
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler()]
+    )
+    logging.error(f"Failed to set up log directory: {e}. Logging to console only.")
+else:
+    # Setup logging with rotation in the 'log' directory
+    try:
+        file_handler = RotatingFileHandler(
+            os.path.join(log_dir, 'app.log'),  # Log file path: log/app.log
+            maxBytes=1_000_000,                # Rotate when file reaches 1 MB
+            backupCount=5                      # Keep 5 backup files
+        )
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(),  # Logs to console
+                file_handler              # Logs to file with rotation
+            ]
+        )
+        logging.info(f"Logging initialized. Writing to {os.path.join(log_dir, 'app.log')}")
+    except Exception as e:
+        print(f"Error setting up file logging: {e}")
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[logging.StreamHandler()]
+        )
+        logging.error(f"Failed to set up file logging: {e}. Logging to console only.")
 
 # Global GPIO handle
 h = None
 
-# Relay state file
-RELAY_STATE_FILE = 'relay_states.json'
+# Locks for thread-safe operations
+gps_lock = threading.Lock()
+config_lock = Lock()
 
 # GPS setup
 try:
@@ -114,12 +153,12 @@ def get_tank_level():
         # Log raw voltage and ADC value for debugging
         logging.debug(f"Tank level raw V_out: {v_out:.3f}V, raw ADC value: {chan_tank.value}")
         # Check for invalid voltage (short or open circuit)
-        if v_out < 0.7 or v_out > 3.3:
+        if v_out < 0.5 or v_out > 3.0:
             logging.warning(f"Tank level sensor fault: Invalid voltage (V_out: {v_out:.3f}V)")
             last_tank_level = None
             last_tank_level_time = current_time
             return None
-        r1 = 150.0  # Fixed resistor in ohms
+        r1 = 100.0  # Fixed resistor in ohms (updated to 100Ω)
         r2 = r1 * (v_in - v_out) / v_out if v_out > 0 else float('inf')  # Sensor resistance
         # Check for invalid resistance (out of expected range)
         if r2 < 30 or r2 > 250:
@@ -163,9 +202,6 @@ current_time_cache = {
     "using_gps": False
 }
 
-# Lock for thread-safe updates
-gps_lock = threading.Lock()
-
 # Timeout tracking
 gps_timeout_start = None
 GPS_TIMEOUT_MINUTES = 5
@@ -200,24 +236,27 @@ def set_system_clock(dt):
 
 def save_relay_states(states):
     try:
-        with open(RELAY_STATE_FILE, 'w') as f:
-            json.dump(states, f)
-        logging.debug(f"Saved relay states: {states}")
+        global config
+        with config_lock:
+            config['relay_states'] = states
+            with open('config.json', 'w') as f:
+                json.dump(config, f, indent=4)
+        logging.debug(f"Saved relay states to config.json: {states}")
     except Exception as e:
-        logging.error(f"Error saving relay states: {e}")
+        logging.error(f"Error saving relay states to config.json: {e}")
 
 def load_relay_states():
     try:
-        if os.path.exists(RELAY_STATE_FILE):
-            with open(RELAY_STATE_FILE, 'r') as f:
-                states = json.load(f)
-            logging.debug(f"Loaded relay states: {states}")
+        global config
+        if 'relay_states' in config and config['relay_states']:
+            states = config['relay_states']
+            logging.debug(f"Loaded relay states from config.json: {states}")
             return states
         else:
-            logging.warning(f"No relay state file found at {RELAY_STATE_FILE}, using default OFF states")
+            logging.warning("No relay states found in config.json, using default OFF states")
             return None
     except Exception as e:
-        logging.error(f"Error loading relay states: {e}")
+        logging.error(f"Error loading relay states from config.json: {e}")
         return None
 
 def get_ds18b20_temperature():
@@ -381,6 +420,11 @@ except Exception as e:
     logging.error(f"Error loading config.json: {e}")
     raise
 
+# Validate config structure
+if 'channels' not in config or 'relays' not in config['channels']:
+    logging.error("Invalid config.json: Missing 'channels' or 'relays'")
+    raise ValueError("Invalid config.json structure")
+
 try:
     pca = PCA9685(i2c, address=0x40)
     pca.frequency = 60
@@ -396,6 +440,7 @@ except Exception as e:
     logging.error(f"Error opening GPIO chip: {e}")
     raise
 
+# Initialize relay states
 relay_states = {}
 for pin in config['channels']['relays']:
     try:
@@ -410,15 +455,24 @@ for pin in config['channels']['relays']:
             logging.warning(f"No saved state for relay pin {pin}, defaulting to OFF")
         lgpio.gpio_claim_output(h, int(pin))
         lgpio.gpio_write(h, int(pin), gpio_state)
-        relay_states[pin] = relay_state
+        relay_states[str(pin)] = relay_state
         logging.info(f"Initialized relay pin {pin} with state: {'ON' if relay_state == 1 else 'OFF'}")
     except Exception as e:
         logging.error(f"Error initializing relay pin {pin}: {e}")
         lgpio.gpio_claim_output(h, int(pin))
         lgpio.gpio_write(h, int(pin), 1)
-        relay_states[pin] = 0
+        relay_states[str(pin)] = 0
         logging.warning(f"Defaulted relay pin {pin} to OFF due to error")
-save_relay_states(relay_states)
+
+# Save initial relay states to config.json
+config['relay_states'] = relay_states
+try:
+    with config_lock:
+        with open('config.json', 'w') as f:
+            json.dump(config, f, indent=4)
+    logging.info("Saved initial relay states to config.json")
+except Exception as e:
+    logging.error(f"Error saving initial relay states to config.json: {e}")
 
 for pin in config['reed_switches']:
     try:
@@ -516,9 +570,8 @@ def toggle():
             return jsonify({"message": f"Channel {channel} set to {state.upper()}"})
         elif channel_type == 'relays':
             lgpio.gpio_write(h, int(channel), 0 if state == 'on' else 1)
-            current_states = load_relay_states() or {}
-            current_states[channel] = 1 if state == 'on' else 0
-            save_relay_states(current_states)
+            config['relay_states'][channel] = 1 if state == 'on' else 0
+            save_relay_states(config['relay_states'])
             logging.info(f"Toggled relay {channel} to {state}")
             return jsonify({"message": f"Relay {channel} set to {state.upper()}"})
         
@@ -568,12 +621,12 @@ def activate_scene():
             pca.channels[int(channel) - 1].duty_cycle = max(0, min(4095, pwm_value))
             logging.info(f"Scene {scene_name}: Set PCA9685 channel {channel} to {brightness}%")
         
-        current_states = load_relay_states() or {}
+        config['relay_states'] = config.get('relay_states', {})
         for pin, state in scene.get('relays', {}).items():
             lgpio.gpio_write(h, int(pin), 1 if state else 0)
-            current_states[pin] = 1 if state else 0
+            config['relay_states'][pin] = 1 if state else 0
             logging.info(f"Scene {scene_name}: Set relay {pin} to {'on' if state else 'off'}")
-        save_relay_states(current_states)
+        save_relay_states(config['relay_states'])
         
         logging.info(f"Activated scene {scene_name}")
         return jsonify({"message": f"Scene {scene_name} activated"})
@@ -603,6 +656,9 @@ def get_relay_states():
         for pin in config['channels']['relays']:
             state = lgpio.gpio_read(h, int(pin))
             states[pin] = 0 if state else 1
+            # Cross-check with config['relay_states']
+            if config.get('relay_states', {}).get(pin) != states[pin]:
+                logging.warning(f"Relay {pin} state mismatch: GPIO={states[pin]}, config={config['relay_states'].get(pin)}")
         logging.debug(f"Returning relay states: {states}")
         return jsonify(states)
     except Exception as e:

@@ -13,6 +13,7 @@ __pycache__/
 .env
 
 # Logs and temporary files
+log/
 *.log
 
 # Web project dependencies and build outputs
@@ -26,3 +27,4 @@ build/
 *.swo
 .idea/
 .vscode/
+.lgd-nfy0

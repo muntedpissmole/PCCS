@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Pissmole Camping Control System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/montserrat.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fontawesome.min.css') }}">
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
 </head>
 <body>
     <div class="container">
@@ -46,7 +46,7 @@
                     <span id="sunset">---</span>
                 </div>
                 <div class="data-item">
-                    <span><i class="fas fa-water"></i> Tank Level:</span>
+                    <span><i class="fas fa-water"></i> Water Level:</span>
                     <span id="tank_level">N/A</span>
                 </div>
                 <div class="data-item">
@@ -108,25 +108,58 @@
                 <span class="dot" data-page="{{ (pca_channels|length / 6)|int }}"></span>
             </div>
         </div>
-        <div class="version">Version: 0.2.0-alpha2</div>
+        <div class="version">Version: 0.3.0-alpha3</div>
     </div>
-    <div class="settings-modal" id="settingsModal">
-        <div class="settings-content">
-            <span class="close-settings" onclick="closeSettings()">×</span>
-            <h2>Settings</h2>
-            <div>
-                <span>Dark Mode:</span>
-                <div class="dark-mode-toggle" id="dark-mode-toggle">
-                    <div class="slider-circle"></div>
-                </div>
-            </div>
-            <div>
-                <button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
-            </div>
-            <div>Scene Editor (Coming Soon)</div>
-            <div>Scheduler (Coming Soon)</div>
-        </div>
-    </div>
+	<div class="settings-modal" id="settingsModal">
+		<div class="settings-content">
+			<span class="close-settings" onclick="closeSettings()"><i class="fas fa-times"></i></span>
+			<div class="settings-tabs">
+				<button class="tab-btn active" onclick="openTab('general')">General</button>
+				<button class="tab-btn" onclick="openTab('scene-editor')">Scene Editor</button>
+				<button class="tab-btn" onclick="openTab('event-scheduler')">Event Scheduler</button>
+			</div>
+			<div id="general-tab" class="tab-content active">
+				<h2>General Settings</h2>
+				<div class="setting-item">
+					<span>Screen Brightness:</span>
+					<div class="slider-container">
+						<input type="range" min="10" max="100" value="50" id="screen-brightness" class="range-slider">
+						<span id="screen-brightness-value">50%</span>
+					</div>
+				</div>
+				<div class="setting-item">
+					<span>Dark Mode:</span>
+					<div class="dark-mode-toggle" id="dark-mode-toggle">
+						<div class="slider-circle"></div>
+					</div>
+				</div>
+				<div class="setting-item">
+					<span>Auto Theme Switch:</span>
+					<div class="dark-mode-toggle" id="auto-theme-toggle">
+						<div class="slider-circle"></div>
+					</div>
+				</div>
+				<div class="setting-item">
+					<span>Default Theme:</span>
+					<select id="default-theme" disabled>
+						<option value="light">Light</option>
+						<option value="dark">Dark</option>
+					</select>
+				</div>
+				<div class="setting-item">
+					<button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
+				</div>
+			</div>
+			<div id="scene-editor-tab" class="tab-content">
+				<h2>Scene Editor</h2>
+				<p>(Coming Soon)</p>
+			</div>
+			<div id="event-scheduler-tab" class="tab-content">
+				<h2>Event Scheduler</h2>
+				<p>(Coming Soon)</p>
+			</div>
+		</div>
+	</div>
     <script>
         function debounce(func, wait) {
             let timeout;
@@ -141,19 +174,20 @@
         function fetchData() {
             $.get('/get_data', function(data) {
                 console.log('Raw data fetched:', data);
-                console.log('Tank level:', data.tank_level); // Debug tank level
+                console.log('Tank level:', data.tank_level);
                 $('#sunrise').text(data.sunrise === "---" || !data.sunrise ? "---" : data.sunrise);
                 $('#sunset').text(data.sunset === "---" || !data.sunset ? "---" : data.sunset);
                 $('#current_datetime').text(data.current_datetime === "---" || !data.current_datetime ? "---" : data.current_datetime);
                 $('#temperature').text(data.temperature !== 'N/A' ? data.temperature + '°C' : 'N/A');
                 $('#battery_level').text(data.battery_level && data.battery_level !== 'N/A' ? data.battery_level : 'N/A');
-                $('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level : 'Error').toggleClass('error', data.tank_level === 'N/A');
+                $('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level + ' Full' : 'Error').toggleClass('error', data.tank_level === 'N/A');
                 $('#storage_panel').text(data.storage_panel || 'Unknown');
                 $('#rear_drawer').text(data.rear_drawer || 'Unknown');
                 const gpsFix = data.gps_fix || 'No';
                 const gpsSatellites = data.gps_quality.match(/\d+/) ? data.gps_quality.match(/\d+/)[0] : '0';
                 const gpsDisplay = gpsFix === 'Yes' ? `${gpsSatellites} Satellites` : 'No';
                 $('#gps_fix').text(gpsDisplay);
+                updateThemeBasedOnTime(data.sunrise, data.sunset);
             }).fail(function(jqXHR, textStatus, errorThrown) {
                 console.error('Error fetching /get_data:', textStatus, errorThrown);
                 console.log('Response text:', jqXHR.responseText);
@@ -163,7 +197,7 @@
                 $('#current_datetime').text('---');
                 $('#temperature').text('N/A');
                 $('#battery_level').text('N/A');
-                $('#tank_level').text('N/A'); // N/A for server failure
+                $('#tank_level').text('N/A');
                 $('#storage_panel').text('Unknown');
                 $('#rear_drawer').text('Unknown');
                 $('#gps_fix').text('No');
@@ -342,7 +376,7 @@
                     url: '/shutdown',
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({}),
+                    data: JSON.stringify({ token: 'your-secret-token' }),
                     success: function(response) {
                         console.log('Shutdown command sent:', response);
                         alert('System is shutting down. Please wait a moment before powering off.');
@@ -570,15 +604,119 @@
                 $(slider).removeClass('on');
                 $('body').removeClass('dark-mode');
             }
-            localStorage.setItem('darkMode', state);
+            saveConfig();
         }
 
-        function openSettings() {
-            $('#settingsModal').fadeIn();
+        function toggleAutoTheme(slider) {
+            const isOn = $(slider).hasClass('on');
+            $('#auto-theme-toggle').toggleClass('on', isOn);
+            const autoTheme = !isOn;
+            $('#default-theme').prop('disabled', autoTheme);
+            $('#default-theme').css('opacity', autoTheme ? 0.5 : 1);
+            if (autoTheme) {
+                updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+            } else {
+                applyDefaultTheme($('#default-theme').val());
+            }
+            saveConfig();
         }
 
-        function closeSettings() {
-            $('#settingsModal').fadeOut();
+        function updateThemeBasedOnTime(sunrise, sunset) {
+            const now = new Date($('#current_datetime').text() || 'Tue Jun 10 2025 19:51:00 GMT+1000');
+            const sunriseTime = new Date(`Tue Jun 10 2025 ${sunrise} GMT+1000`);
+            const sunsetTime = new Date(`Tue Jun 10 2025 ${sunset} GMT+1000`);
+            if (now > sunriseTime && now < sunsetTime) {
+                $('body').removeClass('dark-mode');
+                $('#dark-mode-toggle').removeClass('on');
+            } else {
+                $('body').addClass('dark-mode');
+                $('#dark-mode-toggle').addClass('on');
+            }
+            saveConfig();
+        }
+
+        function applyDefaultTheme(theme) {
+            if (theme === 'dark') {
+                $('body').addClass('dark-mode');
+                $('#dark-mode-toggle').addClass('on');
+            } else {
+                $('body').removeClass('dark-mode');
+                $('#dark-mode-toggle').removeClass('on');
+            }
+            saveConfig();
+        }
+
+        function saveConfig() {
+            const config = {
+                theme: {
+                    darkMode: $('#dark-mode-toggle').hasClass('on') ? 'on' : 'off',
+                    autoTheme: $('#auto-theme-toggle').hasClass('on') ? 'on' : 'off',
+                    defaultTheme: $('#default-theme').val()
+                },
+                screenBrightness: $('#screen-brightness').val()
+            };
+            $.ajax({
+                url: '/save_config',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(config),
+                success: function(response) {
+                    console.log('Config saved:', response);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Error saving config:', textStatus, errorThrown);
+                }
+            });
+        }
+
+        function loadConfig() {
+            $.get('/load_config', function(data) {
+                console.log('Config loaded:', data);
+                if (data.theme) {
+                    if (data.theme.darkMode === 'on') {
+                        $('#dark-mode-toggle').addClass('on');
+                        $('body').addClass('dark-mode');
+                    }
+                    if (data.theme.autoTheme === 'on') {
+                        $('#auto-theme-toggle').addClass('on');
+                        $('#default-theme').prop('disabled', true);
+                        $('#default-theme').css('opacity', 0.5);
+                        updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                    } else {
+                        $('#auto-theme-toggle').removeClass('on');
+                        $('#default-theme').prop('disabled', false);
+                        $('#default-theme').css('opacity', 1);
+                        $('#default-theme').val(data.theme.defaultTheme || 'light');
+                        applyDefaultTheme(data.theme.defaultTheme || 'light');
+                    }
+                    $('#default-theme').val(data.theme.defaultTheme || 'light');
+                }
+                if (data.screenBrightness) {
+                    $('#screen-brightness').val(data.screenBrightness);
+                    $('#screen-brightness-value').text(data.screenBrightness + '%');
+                    $('body').css('filter', `brightness(${data.screenBrightness}%)`);
+                }
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('Error loading config:', textStatus, errorThrown);
+            });
+        }
+
+		function openSettings() {
+			$('#settingsModal').fadeIn();
+			$('.close-settings').addClass('visible'); // Add visible class
+			openTab('general');
+		}
+
+		function closeSettings() {
+			$('#settingsModal').fadeOut();
+			$('.close-settings').removeClass('visible'); // Remove visible class
+		}
+
+        function openTab(tabName) {
+            $('.tab-content').removeClass('active');
+            $('.tab-btn').removeClass('active');
+            $('#' + tabName + '-tab').addClass('active');
+            $('[onclick="openTab(\'' + tabName + '\')"]').addClass('active');
         }
 
         $(document).ready(function() {
@@ -590,15 +728,32 @@
             startPcaStateInterval();
             setInterval(fetchRelayStates, 1000);
 
-            const darkModeState = localStorage.getItem('darkMode');
-            const darkModeToggle = $('#dark-mode-toggle');
-            if (darkModeState === 'on') {
-                darkModeToggle.addClass('on');
-                $('body').addClass('dark-mode');
-            }
+            loadConfig();
 
-            darkModeToggle.on('click', function() {
+            $('#dark-mode-toggle').on('click', function() {
                 toggleDarkMode(this);
+            });
+
+            $('#auto-theme-toggle').on('click', function() {
+                toggleAutoTheme(this);
+            });
+
+            $('#default-theme').on('change', function() {
+                applyDefaultTheme($(this).val());
+            });
+
+            $('#screen-brightness').on('input', function() {
+                const value = $(this).val();
+                $('#screen-brightness-value').text(value + '%');
+                $('body').css('filter', `brightness(${value}%)`);
+                saveConfig();
+            });
+
+            // Click outside to close settings modal
+            $('#settingsModal').on('click', function(e) {
+                if ($(e.target).hasClass('settings-modal')) {
+                    closeSettings();
+                }
             });
 
             updateActiveDot();
