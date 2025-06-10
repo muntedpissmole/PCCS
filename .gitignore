@@ -1,0 +1,28 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Python cache and temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables and secrets
+.env
+
+# Logs and temporary files
+*.log
+
+# Web project dependencies and build outputs
+node_modules/
+dist/
+build/
+
+# System and editor files
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

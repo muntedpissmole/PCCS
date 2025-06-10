@@ -1,0 +1,64 @@
+{
+  "channels": {
+    "pca9685": {
+      "1": { "name": "Kitchen LED Strip", "type": "dimmer" },
+      "2": { "name": "Kitchen LED Strip Red", "type": "dimmer" },
+      "3": { "name": "Kitchen LED Strip Green", "type": "dimmer" },
+      "4": { "name": "Kitchen Bench", "type": "dimmer" },
+      "5": { "name": "Storage Lights", "type": "dimmer" },
+      "6": { "name": "Storage Side Panel", "type": "dimmer" },
+      "7": { "name": "Accent Lights", "type": "dimmer" },
+      "8": { "name": "Accent Lights Red", "type": "dimmer" },
+      "9": { "name": "Accent Lights Green", "type": "dimmer" },
+      "10": { "name": "Rear Drawer Lights", "type": "dimmer" },
+      "11": { "name": "Fairy Lights", "type": "dimmer" },
+      "12": { "name": "Awning Lights", "type": "dimmer" },
+      "13": { "name": "Tent Lights", "type": "dimmer" },
+      "14": { "name": "Ensuite Lights", "type": "dimmer" }
+    },
+    "relays": {
+      "17": { "name": "Floodlights", "type": "switch" },
+      "18": { "name": "Campsite Uplights", "type": "switch" },
+      "27": { "name": "Relay 3", "type": "switch" },
+      "22": { "name": "Relay 4", "type": "switch" }
+    }
+  },
+  "scenes": {
+    "evening": {
+      "pca9685": { "1": 50, "2": 30, "7": 100, "9": 20 },
+      "relays": {}
+    },
+    "night": {
+      "pca9685": { "11": 10, "12": 5 },
+      "relays": {}
+    },
+    "bathroom": {
+      "pca9685": { "12": 80 },
+      "relays": {}
+    },
+    "all_off": {
+      "pca9685": {},
+      "relays": {}
+    }
+  },
+  "reed_switches": {
+    "23": {
+      "name": "Kitchen Panel",
+      "type": "sensor",
+      "state": "closed",
+      "trigger_channels": ["pca9685:1", "pca9685:2", "pca9685:3"]
+    },
+    "24": {
+      "name": "Storage Panel",
+      "type": "sensor",
+      "state": "closed",
+      "trigger_channels": ["pca9685:5", "pca9685:6"]
+    },
+    "25": {
+      "name": "Rear Drawers",
+      "type": "sensor",
+      "state": "closed",
+      "trigger_channels": ["pca9685:10"]
+    }
+  }
+}

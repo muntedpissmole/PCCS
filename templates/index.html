@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Pissmole Camping Control System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <i class="fas fa-gear gear-icon" onclick="openSettings()"></i>
+        <div class="scenes-panel glass">
+            <div class="scenes-grid">
+                {% for scene in scenes %}
+                    <button class="scene-btn" onclick="activateScene('{{ scene }}')">
+                        <i class="fas 
+                            {% if scene == 'evening' %}fa-cloud-sun
+                            {% elif scene == 'night' %}fa-moon
+                            {% elif scene == 'bathroom' %}fa-bath
+                            {% elif scene == 'all_off' %}fa-power-off
+                            {% endif %}"></i>
+                        {{ scene.replace('_', ' ').title() }}
+                    </button>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="data-panel glass">
+            <div class="data-grid">
+                <div class="data-item">
+                    <span><i class="fas fa-thermometer-half"></i> Temperature:</span>
+                    <span id="temperature">N/A</span>
+                </div>
+                <div class="data-item">
+                    <span><i class="fas fa-sun"></i> Sunrise:</span>
+                    <span id="sunrise">---</span>
+                </div>
+                <div class="data-item">
+                    <span><i class="fas fa-battery-full"></i> Battery Voltage:</span>
+                    <span id="battery_level">N/A</span>
+                </div>
+                <div class="data-item">
+                    <span><i class="fas fa-moon"></i> Sunset:</span>
+                    <span id="sunset">---</span>
+                </div>
+                <div class="data-item">
+                    <span><i class="fas fa-water"></i> Tank Level:</span>
+                    <span id="tank_level">N/A</span>
+                </div>
+                <div class="data-item">
+                    <span><i class="fas fa-box"></i> Storage Panel:</span>
+                    <span id="storage_panel">Unknown</span>
+                </div>
+                <div class="data-item">
+                    <span><i class="fas fa-satellite"></i> GPS Fix:</span>
+                    <span id="gps_fix">No</span>
+                </div>
+                <div class="data-item">
+                    <span><i class="fas fa-inbox"></i> Rear Drawer:</span>
+                    <span id="rear_drawer">Unknown</span>
+                </div>
+                <div class="data-item" style="grid-column: 1 / 3;">
+                    <span><i class="fas fa-clock"></i> Date & Time:</span>
+                    <span id="current_datetime">N/A</span>
+                </div>
+            </div>
+        </div>
+        <div class="lighting-panel glass">
+            <div class="lighting-slider">
+                {% set pca_channels = pca9685_channels.items()|rejectattr('0', 'in', ['3', '9'])|list %}
+                {% for i in range(0, pca_channels|length, 6) %}
+                    <div class="lighting-page">
+                        <div class="lighting-grid">
+                            {% for channel, info in pca_channels[i:i+6] %}
+                                <div class="control-item">
+                                    <label>{{ info.name }}</label>
+                                    <span class="brightness-value" id="pca-value-{{ channel }}">0%</span>
+                                    <input type="range" min="0" max="100" value="0" id="pca-{{ channel }}"
+                                           orient="vertical" data-channel="{{ channel }}" aria-label="Adjust brightness for {{ info.name }}">
+                                    <div class="toggle-slider" onclick="toggleLight('pca9685', '{{ channel }}', this)">
+                                        <div class="slider-circle"></div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="lighting-page relay-page">
+                    <div class="relay-grid">
+                        {% for channel, info in relay_channels.items() %}
+                            <div class="control-item">
+                                <label>{{ info.name }}</label>
+                                <span class="switch-state" id="relay-value-{{ channel }}">Off</span>
+                                <div class="toggle-slider" onclick="toggleRelay('relays', '{{ channel }}', this)">
+                                    <div class="slider-circle"></div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="pagination-dots">
+                {% for i in range(0, pca_channels|length, 6) %}
+                    <span class="dot" data-page="{{ loop.index0 }}"></span>
+                {% endfor %}
+                <span class="dot" data-page="{{ (pca_channels|length / 6)|int }}"></span>
+            </div>
+        </div>
+        <div class="version">Version: 0.2.0-alpha2</div>
+    </div>
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-content">
+            <span class="close-settings" onclick="closeSettings()">×</span>
+            <h2>Settings</h2>
+            <div>
+                <span>Dark Mode:</span>
+                <div class="dark-mode-toggle" id="dark-mode-toggle">
+                    <div class="slider-circle"></div>
+                </div>
+            </div>
+            <div>
+                <button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
+            </div>
+            <div>Scene Editor (Coming Soon)</div>
+            <div>Scheduler (Coming Soon)</div>
+        </div>
+    </div>
+    <script>
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        let lastSetBrightness = {};
+
+        function fetchData() {
+            $.get('/get_data', function(data) {
+                console.log('Raw data fetched:', data);
+                console.log('Tank level:', data.tank_level); // Debug tank level
+                $('#sunrise').text(data.sunrise === "---" || !data.sunrise ? "---" : data.sunrise);
+                $('#sunset').text(data.sunset === "---" || !data.sunset ? "---" : data.sunset);
+                $('#current_datetime').text(data.current_datetime === "---" || !data.current_datetime ? "---" : data.current_datetime);
+                $('#temperature').text(data.temperature !== 'N/A' ? data.temperature + '°C' : 'N/A');
+                $('#battery_level').text(data.battery_level && data.battery_level !== 'N/A' ? data.battery_level : 'N/A');
+                $('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level : 'Error').toggleClass('error', data.tank_level === 'N/A');
+                $('#storage_panel').text(data.storage_panel || 'Unknown');
+                $('#rear_drawer').text(data.rear_drawer || 'Unknown');
+                const gpsFix = data.gps_fix || 'No';
+                const gpsSatellites = data.gps_quality.match(/\d+/) ? data.gps_quality.match(/\d+/)[0] : '0';
+                const gpsDisplay = gpsFix === 'Yes' ? `${gpsSatellites} Satellites` : 'No';
+                $('#gps_fix').text(gpsDisplay);
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('Error fetching /get_data:', textStatus, errorThrown);
+                console.log('Response text:', jqXHR.responseText);
+                console.log('Setting tank_level to N/A due to server failure');
+                $('#sunrise').text('---');
+                $('#sunset').text('---');
+                $('#current_datetime').text('---');
+                $('#temperature').text('N/A');
+                $('#battery_level').text('N/A');
+                $('#tank_level').text('N/A'); // N/A for server failure
+                $('#storage_panel').text('Unknown');
+                $('#rear_drawer').text('Unknown');
+                $('#gps_fix').text('No');
+            });
+        }
+
+        function fetchPcaStates() {
+            $.get('/get_pca_states', function(data) {
+                try {
+                    const states = typeof data === 'string' ? JSON.parse(data) : data;
+                    console.log('PCA states received:', states);
+                    Object.keys(states).forEach(channel => {
+                        if (['3', '9'].includes(channel)) {
+                            console.log(`Skipping channel ${channel}`);
+                            return;
+                        }
+                        const brightness = parseInt(states[channel]) || 0;
+                        const valueElement = $(`#pca-value-${channel}`);
+                        const sliderElement = $(`#pca-${channel}`);
+                        const toggleSlider = $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`);
+                        if (!valueElement.length || !sliderElement.length || !toggleSlider.length) {
+                            console.warn(`Missing elements for channel ${channel}`);
+                            return;
+                        }
+                        if (lastSetBrightness[channel] && Math.abs(brightness - lastSetBrightness[channel]) > 10) {
+                            console.log(`Ignoring erratic update for channel ${channel}`);
+                            return;
+                        }
+                        console.log(`Updating channel ${channel}: brightness=${brightness}%`);
+                        valueElement.text(brightness + '%');
+                        sliderElement.val(brightness);
+                        sliderElement[0].style.setProperty('--value', brightness + '%');
+                        if (brightness > 0) {
+                            toggleSlider.addClass('on');
+                        } else {
+                            toggleSlider.removeClass('on');
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error parsing /get_pca_states:', e);
+                }
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('Error fetching /get_pca_states:', textStatus, errorThrown);
+            });
+        }
+
+        function fetchRelayStates() {
+            $.get('/get_relay_states', function(data) {
+                console.log('Relay states received:', data);
+                Object.keys(data).forEach(channel => {
+                    const state = data[channel] ? 'On' : 'Off';
+                    const toggleSlider = $(`#relay-value-${channel}`).closest('.control-item').find('.toggle-slider');
+                    $(`#relay-value-${channel}`).text(state);
+                    if (state === 'On') {
+                        toggleSlider.addClass('on');
+                    } else {
+                        toggleSlider.removeClass('on');
+                    }
+                });
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('Error fetching /get_relay_states:', textStatus, errorThrown);
+            });
+        }
+
+        function setBrightness(type, channel, value) {
+            console.log(`Setting ${type} channel ${channel} to ${value}%`);
+            $(`#pca-value-${channel}`).text(value + '%');
+            lastSetBrightness[channel] = value;
+            stopPcaStateInterval();
+            $.ajax({
+                url: '/set_brightness',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ type: type, channel: channel, brightness: value }),
+                success: function(response) {
+                    console.log(`Set brightness success for channel ${channel}:`, response);
+                    setTimeout(() => {
+                        fetchPcaStates();
+                        startPcaStateInterval();
+                    }, 800);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error(`Error in set_brightness for channel ${channel}:`, textStatus, errorThrown);
+                    setTimeout(() => {
+                        startPcaStateInterval();
+                    }, 800);
+                }
+            });
+        }
+
+        const debouncedSetBrightness = debounce(setBrightness, 100);
+
+        function toggleLight(type, channel, slider) {
+            const isOn = $(slider).hasClass('on');
+            const state = isOn ? 'off' : 'on';
+            const value = state === 'on' ? 100 : 0;
+            console.log(`Toggling ${type} channel ${channel} to ${state}`);
+            $(`#pca-value-${channel}`).text(value + '%');
+            $(`#pca-${channel}`).val(value);
+            $(`#pca-${channel}`).css('--value', value + '%');
+            lastSetBrightness[channel] = value;
+            if (state === 'on') {
+                $(slider).addClass('on');
+            } else {
+                $(slider).removeClass('on');
+            }
+            $.ajax({
+                url: '/toggle',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ type: type, channel: channel, state: state }),
+                success: function(response) {
+                    console.log(`Toggle success for channel ${channel}:`, response);
+                    setTimeout(() => {
+                        fetchPcaStates();
+                    }, 800);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error(`Error in toggle for channel ${channel}:`, textStatus, errorThrown);
+                    setTimeout(() => {
+                        startPcaStateInterval();
+                    }, 800);
+                }
+            });
+        }
+
+        function toggleRelay(type, channel, slider) {
+            const isOn = $(slider).hasClass('on');
+            const state = isOn ? 'off' : 'on';
+            console.log(`Toggling relay channel ${channel} to ${state}`);
+            $(`#relay-value-${channel}`).text(state.charAt(0).toUpperCase() + state.slice(1));
+            if (state === 'on') {
+                $(slider).addClass('on');
+            } else {
+                $(slider).removeClass('on');
+            }
+            $.ajax({
+                url: '/toggle',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ type: type, channel: channel, state: state }),
+                success: function(response) {
+                    console.log(`Toggle success for relay ${channel}:`, response);
+                    fetchRelayStates();
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error(`Error in toggleRelay for channel ${channel}:`, textStatus, errorThrown);
+                }
+            });
+        }
+
+        function activateScene(scene) {
+            console.log(`Activating scene ${scene}`);
+            $.ajax({
+                url: '/activate_scene',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ scene: scene }),
+                success: function(response) {
+                    console.log(`Scene ${scene} activated:`, response);
+                    setTimeout(() => {
+                        fetchPcaStates();
+                        fetchRelayStates();
+                    }, 100);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error(`Error in activate_scene for ${scene}:`, textStatus, errorThrown);
+                }
+            });
+        }
+
+        function initiateShutdown() {
+            if (confirm('Are you sure you want to shut down the system? This will power off the Raspberry Pi.')) {
+                console.log('Initiating system shutdown');
+                $.ajax({
+                    url: '/shutdown',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({}),
+                    success: function(response) {
+                        console.log('Shutdown command sent:', response);
+                        alert('System is shutting down. Please wait a moment before powering off.');
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        console.error('Error initiating shutdown:', textStatus, errorThrown);
+                        alert('Failed to initiate shutdown. Please try again or check the server.');
+                    }
+                });
+            }
+        }
+
+        let pcaStateInterval;
+        function startPcaStateInterval() {
+            if (!pcaStateInterval) {
+                pcaStateInterval = setInterval(fetchPcaStates, 10000);
+                console.log('Started PCA state interval');
+            }
+        }
+
+        function stopPcaStateInterval() {
+            if (pcaStateInterval) {
+                clearInterval(pcaStateInterval);
+                pcaStateInterval = null;
+                console.log('Stopped PCA state interval');
+            }
+        }
+
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            const updateSlider = (value, channel) => {
+                $(`#pca-value-${channel}`).text(value + '%');
+                slider.style.setProperty('--value', value + '%');
+                slider.value = value;
+                debouncedSetBrightness('pca9685', channel, value);
+            };
+
+            let isMouseDragging = false;
+
+            slider.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                isMouseDragging = true;
+                const channel = this.dataset.channel;
+                console.log(`Slider mousedown for channel ${channel}`);
+                stopPcaStateInterval();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isMouseDragging) return;
+                e.preventDefault();
+                const channel = slider.dataset.channel;
+                const rect = slider.getBoundingClientRect();
+                const totalHeight = rect.height;
+                const mouseY = e.clientY - rect.top;
+                let value = Math.round(((totalHeight - mouseY) / totalHeight) * 100);
+                value = Math.max(0, Math.min(100, value));
+                console.log(`Slider mousemove for channel ${channel}: ${value}%`);
+                updateSlider(value, channel);
+                slider.dispatchEvent(new Event('input'));
+            });
+
+            document.addEventListener('mouseup', (e) => {
+                if (!isMouseDragging) return;
+                const channel = slider.dataset.channel;
+                console.log(`Slider mouseup for channel ${channel}`);
+                isMouseDragging = false;
+                setTimeout(() => {
+                    startPcaStateInterval();
+                    fetchPcaStates();
+                }, 800);
+            });
+
+            slider.addEventListener('input', function(e) {
+                const value = parseInt(this.value);
+                const channel = this.dataset.channel;
+                console.log(`Slider input for channel ${channel}: ${value}%`);
+                updateSlider(value, channel);
+            });
+
+            slider.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                const channel = this.dataset.channel;
+                console.log(`Slider touchstart for channel ${channel}`);
+                stopPcaStateInterval();
+                this.classList.add('active');
+            });
+
+            slider.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const rect = this.getBoundingClientRect();
+                const totalHeight = rect.height;
+                const touchY = touch.clientY - rect.top;
+                let value = Math.round(((totalHeight - touchY) / totalHeight) * 100);
+                value = Math.max(0, Math.min(100, value));
+                const channel = this.dataset.channel;
+                console.log(`Slider touchmove for channel ${channel}: ${value}%`);
+                updateSlider(value, channel);
+                this.dispatchEvent(new Event('input'));
+            });
+
+            slider.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                const channel = this.dataset.channel;
+                console.log(`Slider touchend for channel ${channel}`);
+                this.classList.remove('active');
+                setTimeout(() => {
+                    startPcaStateInterval();
+                    fetchPcaStates();
+                }, 800);
+            });
+        });
+
+        const lightingSlider = document.querySelector('.lighting-slider');
+        let isDragging = false;
+        let startX;
+        let scrollLeft;
+
+        function snapToPage(targetPage) {
+            const pageWidth = lightingSlider.clientWidth;
+            targetPage = Math.max(0, Math.min(targetPage, document.querySelectorAll('.lighting-page').length - 1));
+            lightingSlider.scrollTo({
+                left: targetPage * pageWidth,
+                behavior: 'smooth'
+            });
+        }
+
+        lightingSlider.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.pageX - lightingSlider.offsetLeft;
+            scrollLeft = lightingSlider.scrollLeft;
+            lightingSlider.style.cursor = 'grabbing';
+        });
+
+        lightingSlider.addEventListener('mouseleave', () => {
+            if (isDragging) {
+                const pageWidth = lightingSlider.clientWidth;
+                snapToPage(Math.round(lightingSlider.scrollLeft / pageWidth));
+            }
+            isDragging = false;
+            lightingSlider.style.cursor = 'grab';
+        });
+
+        lightingSlider.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                const x = e.pageX - lightingSlider.offsetLeft;
+                const distance = (startX - x) * 2;
+                const pageWidth = lightingSlider.clientWidth;
+                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+                if (Math.abs(distance) > 30) {
+                    targetPage += distance > 0 ? 1 : -1;
+                }
+                snapToPage(targetPage);
+            }
+            isDragging = false;
+            lightingSlider.style.cursor = 'grab';
+        });
+
+        lightingSlider.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            const x = e.pageX - lightingSlider.offsetLeft;
+            const walk = (x - startX) * 2;
+            lightingSlider.scrollLeft = scrollLeft - walk;
+        });
+
+        lightingSlider.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            startX = e.touches[0].pageX - lightingSlider.offsetLeft;
+            scrollLeft = lightingSlider.scrollLeft;
+        });
+
+        lightingSlider.addEventListener('touchend', (e) => {
+            if (isDragging) {
+                const x = e.changedTouches[0].pageX - lightingSlider.offsetLeft;
+                const distance = (startX - x) * 2;
+                const pageWidth = lightingSlider.clientWidth;
+                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+                if (Math.abs(distance) > 30) {
+                    targetPage += distance > 0 ? 1 : -1;
+                }
+                snapToPage(targetPage);
+            }
+            isDragging = false;
+        });
+
+        lightingSlider.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            const x = e.touches[0].pageX - lightingSlider.offsetLeft;
+            const walk = (x - startX) * 2;
+            lightingSlider.scrollLeft = scrollLeft - walk;
+        });
+
+        const dots = document.querySelectorAll('.pagination-dots .dot');
+        function updateActiveDot() {
+            const scrollPos = lightingSlider.scrollLeft;
+            const pageWidth = lightingSlider.clientWidth;
+            const currentPage = Math.round(scrollPos / pageWidth);
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentPage);
+            });
+        }
+
+        lightingSlider.addEventListener('scroll', updateActiveDot);
+
+        dots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                const page = parseInt(dot.dataset.page);
+                lightingSlider.scrollTo({
+                    left: page * lightingSlider.clientWidth,
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        function toggleDarkMode(slider) {
+            const isOn = $(slider).hasClass('on');
+            const state = isOn ? 'off' : 'on';
+            console.log(`Toggling dark mode to ${state}`);
+            if (state === 'on') {
+                $(slider).addClass('on');
+                $('body').addClass('dark-mode');
+            } else {
+                $(slider).removeClass('on');
+                $('body').removeClass('dark-mode');
+            }
+            localStorage.setItem('darkMode', state);
+        }
+
+        function openSettings() {
+            $('#settingsModal').fadeIn();
+        }
+
+        function closeSettings() {
+            $('#settingsModal').fadeOut();
+        }
+
+        $(document).ready(function() {
+            console.log('Page loaded, starting state fetches');
+            fetchData();
+            fetchPcaStates();
+            fetchRelayStates();
+            setInterval(fetchData, 5000);
+            startPcaStateInterval();
+            setInterval(fetchRelayStates, 1000);
+
+            const darkModeState = localStorage.getItem('darkMode');
+            const darkModeToggle = $('#dark-mode-toggle');
+            if (darkModeState === 'on') {
+                darkModeToggle.addClass('on');
+                $('body').addClass('dark-mode');
+            }
+
+            darkModeToggle.on('click', function() {
+                toggleDarkMode(this);
+            });
+
+            updateActiveDot();
+        });
+    </script>
+</body>
+</html>
