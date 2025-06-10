@@ -1,7 +1,7 @@
 # Pissmole Camping Control System (PCCS)
 
 ## Overview
-The Pissmole Camping Control System (PCCS) is a Raspberry Pi-based solution designed to manage camping equipment. It integrates hardware components such as PCA boards, sensors, and relays with a user-friendly interface featuring a neomorphism theme. PCCS aims to control lighting, monitor environmental data (e.g., temperature, GPS), and enhance the camping experience through automated and intuitive controls.
+The Pissmole Camping Control System (PCCS) is a Raspberry Pi-based solution designed to manage camper trailer electronics. It controls PWM lighting, lighting scenes based on time of sunsset/sunrise offset, general purpose relay control, GPS for sunset/sunrise/date/time and coordinates calculations, reed switch monitoring for panel doors and drawers, temperature, battery voltage and water tank level monitoring with a user-friendly interface featuring a neomorphism theme with dark and light options.
 
 ## Changelog
 
@@ -20,18 +20,10 @@ The Pissmole Camping Control System (PCCS) is a Raspberry Pi-based solution desi
 - Stabilized lighting relay states on system startup to prevent erratic behavior.
 - Added a placeholder settings page for future configuration options.
 
-### Alpha 3 (Planned)
+### Alpha 3 (In development)
 - Implementation of an event scheduler and scene editor for automated control sequences.
 - Enable scene management for preset lighting and sensor configurations.
 - Connect MOSFET dimmer to validate and optimize lighting dimmer performance.
 - Add anti-bug/red lighting logic for green channels on select lighting outputs.
 - Install remaining hardware (reed switches, battery voltage monitoring) for real-world testing.
 - Add a shutdown button to safely power off the Raspberry Pi before disconnecting power.
-
-## Setup
-- **Clone the repository**: `git clone https://github.com/muntedpissmole/pccs.git`
-- **Install dependencies**: (To be documented)
-- **Configure hardware**: (To be documented)
-
-## License
-(TBD)
