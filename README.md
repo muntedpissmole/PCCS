@@ -6,7 +6,7 @@ The Pissmole Camping Control System (PCCS) is a Raspberry Pi-based solution desi
 ## Changelog
 
 ### Alpha 1
-- Developed initial backend logic for system control.
+- Initial backend logic for system control.
 - Designed user interface with a neomorphism theme, including layout and styling.
 - Positioned data blocks and navigation elements for intuitive access.
 - Integrated PCA board hardware, mapping lighting dimmer channels to specific outputs.

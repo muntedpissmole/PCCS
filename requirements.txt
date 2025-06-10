@@ -1,0 +1,10 @@
+adafruit_blinka
+adafruit_circuitpython_ads1x15
+adafruit_circuitpython_pca9685
+astral
+Flask
+lgpio
+pynmea2
+pyserial
+pytz
+w1thermsensor
