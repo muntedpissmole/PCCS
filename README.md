@@ -34,6 +34,7 @@ python3 app.py
 Or install as a service to start with the RPI.
 
 ## Hardware requirements:
+### Backend:
 - RPI 5
 - Adafruit PCA9685 on I2C channel 40 and IRF540 mosfet driver boards to run your LEDs
 - Adafruit Ultimate GPS Breakout PA1616S
@@ -42,6 +43,10 @@ Or install as a service to start with the RPI.
 - DS18B20 Temperature Sensor
 - fuel level sensor that scales from 240ohm (full) to 33ohm (empty)
 - DC0-25V Voltage Detection Module Voltage Sensor
+
+### Front End:
+- Waveshare 10.1" 1280 x 800 Touchscreen
+- RPI for powering the touchscren web ui, or a mini PC like an Intel NUC if you want a silky smooth webpage. I foudn that connecting the backend RPI to the touchscreen made the webui too jolty.
 
 ### Connections
 See config.json for lighting, relay and reed switch connections.
