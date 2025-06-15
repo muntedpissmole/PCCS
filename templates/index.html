@@ -101,10 +101,10 @@
 				</div>
 			</div>
 			<div class="pagination-dots">
-				{% for i in range(0, pca_channels|length, 6) %}
-					<span class="dot" data-page="{{ loop.index0 }}"></span>
+				{% set page_count = (pca_channels|length / 6)|round(0, 'ceil')|int %}
+				{% for i in range(page_count + 1) %}
+					<span class="dot" data-page="{{ i }}"></span>
 				{% endfor %}
-				<span class="dot" data-page="{{ (pca_channels|length / 6)|int }}"></span>
 			</div>
 			<i class="fas fa-sync-alt refresh-icon" onclick="refreshPage()"></i>
 			<i class="fas fa-gear gear-icon" onclick="openSettings()"></i>
@@ -118,40 +118,45 @@
                 <button class="tab-btn" onclick="openTab('scene-editor')">Scene Editor</button>
                 <button class="tab-btn" onclick="openTab('event-scheduler')">Event Scheduler</button>
             </div>
-            <div id="general-tab" class="tab-content active">
-                <h2>General Settings</h2>
-                <div class="setting-item">
-                    <span>Screen Brightness:</span>
-                    <div class="slider-container">
-                        <input type="range" min="10" max="100" value="50" id="screen-brightness" class="range-slider">
-                        <span id="screen-brightness-value">50%</span>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <span>Dark Mode:</span>
-                    <label class="settings-toggle" for="dark-mode-toggle">
-                        <input type="checkbox" id="dark-mode-toggle" class="toggle-input">
-                        <span class="slider-circle"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <span>Auto Theme Switch:</span>
-                    <label class="settings-toggle" for="auto-theme-toggle">
-                        <input type="checkbox" id="auto-theme-toggle" class="toggle-input">
-                        <span class="slider-circle"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <span>Default Theme:</span>
-                    <select id="default-theme" disabled>
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
-                </div>
-            </div>
+			<div id="general-tab" class="tab-content active">
+				<h2>General Settings</h2>
+				<!-- Top left: Dark Mode -->
+				<div class="setting-item">
+					<span>Dark Mode:</span>
+					<label class="settings-toggle" for="dark-mode-toggle">
+						<input type="checkbox" id="dark-mode-toggle" class="toggle-input">
+						<span class="slider-circle"></span>
+					</label>
+				</div>
+				<!-- Top right: Screen Brightness -->
+				<div class="setting-item">
+					<span>Screen Brightness:</span>
+					<div class="slider-container">
+						<input type="range" min="10" max="100" value="50" id="screen-brightness" class="range-slider">
+						<span id="screen-brightness-value">50%</span>
+					</div>
+				</div>
+				<!-- Middle left: Auto Theme Switch -->
+				<div class="setting-item">
+					<span>Auto Theme Switch:</span>
+					<label class="settings-toggle" for="auto-theme-toggle">
+						<input type="checkbox" id="auto-theme-toggle" class="toggle-input">
+						<span class="slider-circle"></span>
+					</label>
+				</div>
+				<!-- Middle right: Shutdown -->
+				<div class="setting-item">
+					<button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
+				</div>
+				<!-- Bottom left: Default Theme -->
+				<div class="setting-item">
+					<span>Default Theme:</span>
+					<select id="default-theme" disabled>
+						<option value="light">Light</option>
+						<option value="dark">Dark</option>
+					</select>
+				</div>
+			</div>
             <div id="scene-editor-tab" class="tab-content">
                 <h2>Scene Editor</h2>
                 <p>(Coming Soon)</p>
@@ -164,904 +169,836 @@
         </div>
     </div>
 
-    <script>
+<script>
 $(document).ready(function() {
-    console.log('Page loaded, starting state fetches');
-    loadConfig();
-    fetchData();
-    fetchPcaStates();
-    fetchRelayStates(); // Run once on startup
-    setInterval(fetchData, 5000); // Poll sensor data every 5 seconds
-    startPcaStateInterval(); // Poll PCA states every 10 seconds
-    updateActiveDot();
-    
-    // Periodic theme update (every minute)
-    setInterval(() => {
-        if ($('#auto-theme-toggle').prop('checked')) {
-            updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
-        }
-    }, 60000);
+    console.log('Diagnostic: Page loaded, starting initialization');
+    try {
+        loadConfig();
+        fetchData();
+        fetchPcaStates();
+        fetchRelayStates();
+        setInterval(fetchData, 5000);
+        startPcaStateInterval();
 
-    // Toggle event listener
-    document.querySelectorAll('.settings-toggle input[type="checkbox"]').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const toggle = this.parentElement;
-            toggle.classList.toggle('on', this.checked);
-            console.log('Toggle changed:', this.id, 'Checked:', this.checked);
-            if (this.id === 'dark-mode-toggle') {
-                document.body.classList.toggle('dark-mode', this.checked);
-                saveConfig();
-            }
-            if (this.id === 'auto-theme-toggle') {
-                if (this.checked) {
-                    $('#default-theme').prop('disabled', true);
-                    $('#default-theme').css('opacity', 0.5);
-                    updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
-                } else {
-                    $('#default-theme').prop('disabled', false);
-                    $('#default-theme').css('opacity', 1);
-                    applyDefaultTheme($('#default-theme').val());
-                }
-                saveConfig();
-            }
-        });
-    });
-
-    $('#default-theme').on('change', function() {
-        applyDefaultTheme($(this).val());
-        saveConfig();
-    });
-
-	$('#screen-brightness').on('input', function() {
-		const value = parseInt(this.value, 10);
-		if (isNaN(value) || value < 10 || value > 100) {
-			console.warn(`Invalid brightness value: ${value}, resetting to 50`);
-			this.value = 50;
-			$('#screen-brightness-value').text('50%');
-			$('body').css('filter', 'brightness(50%)');
-			this.style.setProperty('--value', '50%');
-		} else {
-			$('#screen-brightness-value').text(value + '%');
-			$('body').css('filter', `brightness(${value}%)`);
-			this.style.setProperty('--value', value + '%');
-		}
-		$('body')[0].offsetHeight; // Force repaint
-		console.log(`Set screen brightness to ${value}%`);
-		saveConfig();
-	});
-
-    $('#default-theme').on('change', function() {
-        applyDefaultTheme($(this).val());
-        saveConfig();
-    });
-
-    $('#screen-brightness').on('input', function() {
-        const value = parseInt(this.value, 10);
-        if (isNaN(value) || value < 10 || value > 100) {
-            console.warn(`Invalid brightness value: ${value}, resetting to 50`);
-            this.value = 50;
-            $('#screen-brightness-value').text('50%');
-            $('body').css('filter', 'brightness(50%)');
-        } else {
-            $('#screen-brightness-value').text(value + '%');
-            $('body').css('filter', `brightness(${value}%)`);
-        }
-        // Force repaint
-        $('body')[0].offsetHeight;
-        console.log(`Set screen brightness to ${value}%`);
-        saveConfig();
-    });
-
-    // ... other event listeners remain the same ...
-});
-
-function loadConfig() {
-    $.get('/load_config', function(data) {
-        console.log('Config loaded:', data);
-        // Apply theme settings
-        if (data.theme) {
-            // Set default theme dropdown
-            $('#default-theme').val(data.theme.defaultTheme || 'light');
-
-            // Apply auto-theme toggle
-            if (data.theme.autoTheme === 'on') {
-                $('#auto-theme-toggle').prop('checked', true);
-                $('#auto-theme-toggle').parent().addClass('on');
-                $('#default-theme').prop('disabled', true);
-                $('#default-theme').css('opacity', 0.5);
-                // Defer auto-theme update until sunrise/sunset data is available
-                fetchData().then(() => {
-                    updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
-                });
-            } else {
-                $('#auto-theme-toggle').prop('checked', false);
-                $('#auto-theme-toggle').parent().removeClass('on');
-                $('#default-theme').prop('disabled', false);
-                $('#default-theme').css('opacity', 1);
-                // Apply dark mode or default theme
-                if (data.theme.darkMode === 'on') {
-                    $('#dark-mode-toggle').prop('checked', true);
-                    $('#dark-mode-toggle').parent().addClass('on');
-                    $('body').addClass('dark-mode');
-                } else {
-                    $('#dark-mode-toggle').prop('checked', false);
-                    $('#dark-mode-toggle').parent().removeClass('on');
-                    $('body').removeClass('dark-mode');
-                    applyDefaultTheme(data.theme.defaultTheme || 'light');
-                }
-            }
-
-            // Apply screen brightness
-            let brightness = parseInt(data.screenBrightness, 10) || 50;
-            brightness = Math.max(10, Math.min(100, brightness));
-            console.log(`Applying screen brightness: ${brightness}%`);
-            $('#screen-brightness').val(brightness);
-            $('#screen-brightness-value').text(brightness + '%');
-            $('body').css('filter', `brightness(${brightness}%)`);
-            // Force repaint
-            $('body')[0].offsetHeight;
-            $('#screen-brightness').trigger('input');
-        } else {
-            console.warn('No theme data in config, using defaults');
-            $('#dark-mode-toggle').prop('checked', false);
-            $('#auto-theme-toggle').prop('checked', false);
-            $('#default-theme').val('light');
-            applyDefaultTheme('light');
-            $('#screen-brightness').val(50);
-            $('#screen-brightness-value').text('50%');
-            $('body').css('filter', 'brightness(50%)');
-        }
-    }).fail(function(jqXHR, textStatus, errorThrown) {
-        console.error('Error loading config:', textStatus, errorThrown, 'Response:', jqXHR.responseText);
-        // Apply default settings
-        $('#dark-mode-toggle').prop('checked', false);
-        $('#auto-theme-toggle').prop('checked', false);
-        $('#default-theme').val('light');
-        applyDefaultTheme('light');
-        $('#screen-brightness').val(50);
-        $('#screen-brightness-value').text('50%');
-        $('body').css('filter', 'brightness(50%)');
-    });
-}
-
-function loadConfig() {
-    $.get('/load_config', function(data) {
-        console.log('Config loaded:', data);
-        // Apply theme settings
-        if (data.theme) {
-            if (data.theme.darkMode === 'on') {
-                $('#dark-mode-toggle').prop('checked', true);
-                $('#dark-mode-toggle').parent().addClass('on');
-                $('body').addClass('dark-mode');
-            } else {
-                $('#dark-mode-toggle').prop('checked', false);
-                $('#dark-mode-toggle').parent().removeClass('on');
-                $('body').removeClass('dark-mode');
-            }
-            if (data.theme.autoTheme === 'on') {
-                $('#auto-theme-toggle').prop('checked', true);
-                $('#auto-theme-toggle').parent().addClass('on');
-                $('#default-theme').prop('disabled', true);
-                $('#default-theme').css('opacity', 0.5);
-                updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
-            } else {
-                $('#auto-theme-toggle').prop('checked', false);
-                $('#auto-theme-toggle').parent().removeClass('on');
-                $('#default-theme').prop('disabled', false);
-                $('#default-theme').css('opacity', 1);
-                $('#default-theme').val(data.theme.defaultTheme || 'light');
-                applyDefaultTheme(data.theme.defaultTheme || 'light');
-            }
-            $('#default-theme').val(data.theme.defaultTheme || 'light');
-        }
-        // Apply screen brightness
-        let brightness = 50; // Default
-        if (data.screenBrightness) {
-            brightness = parseInt(data.screenBrightness, 10);
-            if (isNaN(brightness) || brightness < 10 || brightness > 100) {
-                console.warn(`Invalid screenBrightness value: ${data.screenBrightness}, using default 50%`);
-                brightness = 50;
-            }
-        } else {
-            console.warn('No screenBrightness in config, using default 50%');
-        }
-        console.log(`Applying screen brightness: ${brightness}%`);
-        $('#screen-brightness').val(brightness);
-        $('#screen-brightness-value').text(brightness + '%');
-        $('body').css('filter', `brightness(${brightness}%)`);
-        // Force repaint
-        $('body')[0].offsetHeight;
-        // Trigger input event to ensure UI sync
-        $('#screen-brightness').trigger('input');
-    }).fail(function(jqXHR, textStatus, errorThrown) {
-        console.error('Error loading config:', textStatus, errorThrown, 'Response:', jqXHR.responseText);
-        // Apply default settings
-        $('#dark-mode-toggle').prop('checked', false);
-        $('#dark-mode-toggle').parent().removeClass('on');
-        $('#auto-theme-toggle').prop('checked', false);
-        $('#auto-theme-toggle').parent().removeClass('on');
-        $('#default-theme').val('light');
-        applyDefaultTheme('light');
-        // Apply default brightness
-        const brightness = 50;
-        console.log(`Applying default screen brightness: ${brightness}%`);
-        $('#screen-brightness').val(brightness);
-        $('#screen-brightness-value').text(brightness + '%');
-        $('body').css('filter', `brightness(${brightness}%)`);
-        // Force repaint
-        $('body')[0].offsetHeight;
-        $('#screen-brightness').trigger('input');
-    });
-}
-
-        function debounce(func, wait) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
-        }
-
-        let lastSetBrightness = {};
-
-		function fetchData() {
-			$.get('/get_data', function(data) {
-				console.log('Raw data fetched:', data);
-				console.log('Tank level:', data.tank_level);
-				$('#sunrise').text(data.sunrise === "---" || !data.sunrise ? "---" : data.sunrise);
-				$('#sunset').text(data.sunset === "---" || !data.sunset ? "---" : data.sunset);
-				$('#current_datetime').text(data.current_datetime === "---" || !data.current_datetime ? "---" : data.current_datetime);
-				$('#temperature').text(data.temperature !== 'N/A' ? data.temperature + '°C' : 'N/A');
-				$('#battery_level').text(data.battery_level && data.battery_level !== 'N/A' ? data.battery_level : 'N/A');
-				$('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level + '% Full' : 'Error').toggleClass('error', data.tank_level === 'N/A');
-				$('#storage_panel').text(data.storage_panel || 'Unknown');
-				$('#rear_drawer').text(data.rear_drawer || 'Unknown');
-				const gpsFix = data.gps_fix || 'No';
-				const gpsSatellites = data.gps_quality.match(/\d+/) ? data.gps_quality.match(/\d+/)[0] : '0';
-				const gpsDisplay = gpsFix === 'Yes' ? `${gpsSatellites} Satellites` : 'No';
-				$('#gps_fix').text(gpsDisplay);
-				updateThemeBasedOnTime(data.sunrise, data.sunset);
-			}).fail(function(jqXHR, textStatus, errorThrown) {
-				console.error('Error fetching /get_data:', textStatus, errorThrown);
-				console.log('Response text:', jqXHR.responseText);
-				console.log('Setting tank_level to N/A due to server failure');
-				$('#sunrise').text('---');
-				$('#sunset').text('---');
-				$('#current_datetime').text('---');
-				$('#temperature').text('N/A');
-				$('#battery_level').text('N/A');
-				$('#tank_level').text('Error').toggleClass('error', true);
-				$('#storage_panel').text('Unknown');
-				$('#rear_drawer').text('Unknown');
-				$('#gps_fix').text('No');
-			});
-		}
-
-        function fetchPcaStates() {
-            $.get('/get_pca_states', function(data) {
-                try {
-                    const states = typeof data === 'string' ? JSON.parse(data) : data;
-                    console.log('PCA states received:', states);
-                    Object.keys(states).forEach(channel => {
-                        if (['3', '9'].includes(channel)) {
-                            console.log(`Skipping channel ${channel}`);
-                            return;
-                        }
-                        const brightness = parseInt(states[channel]) || 0;
-                        const valueElement = $(`#pca-value-${channel}`);
-                        const sliderElement = $(`#pca-${channel}`);
-                        const toggleSlider = $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`);
-                        if (!valueElement.length || !sliderElement.length || !toggleSlider.length) {
-                            console.warn(`Missing elements for channel ${channel}`);
-                            return;
-                        }
-                        if (lastSetBrightness[channel] && Math.abs(brightness - lastSetBrightness[channel]) > 10) {
-                            console.log(`Ignoring erratic update for channel ${channel}`);
-                            return;
-                        }
-                        console.log(`Updating channel ${channel}: brightness=${brightness}%`);
-                        valueElement.text(brightness + '%');
-                        sliderElement.val(brightness);
-                        sliderElement[0].style.setProperty('--value', brightness + '%');
-                        if (brightness > 0) {
-                            toggleSlider.addClass('on');
-                        } else {
-                            toggleSlider.removeClass('on');
-                        }
-                    });
-                } catch (e) {
-                    console.error('Error parsing /get_pca_states:', e);
-                }
-            }).fail(function(jqXHR, textStatus, errorThrown) {
-                console.error('Error fetching /get_pca_states:', textStatus, errorThrown);
-            });
-        }
-
-        function fetchRelayStates() {
-            $.get('/get_relay_states', function(data) {
-                console.log('Relay states received:', data);
-                Object.keys(data).forEach(channel => {
-                    const state = data[channel] ? 'On' : 'Off';
-                    const toggleSlider = $(`#relay-value-${channel}`).closest('.control-item').find('.toggle-slider');
-                    $(`#relay-value-${channel}`).text(state);
-                    if (state === 'On') {
-                        toggleSlider.addClass('on');
-                    } else {
-                        toggleSlider.removeClass('on');
-                    }
-                });
-            }).fail(function(jqXHR, textStatus, errorThrown) {
-                console.error('Error fetching /get_relay_states:', textStatus, errorThrown);
-            });
-        }
-
-        function setBrightness(type, channel, value) {
-            console.log(`Setting ${type} channel ${channel} to ${value}%`);
-            $(`#pca-value-${channel}`).text(value + '%');
-            lastSetBrightness[channel] = value;
-            stopPcaStateInterval();
-            $.ajax({
-                url: '/set_brightness',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ type: type, channel: channel, brightness: value }),
-                success: function(response) {
-                    console.log(`Set brightness success for channel ${channel}:`, response);
-                    setTimeout(() => {
-                        fetchPcaStates();
-                        startPcaStateInterval();
-                    }, 800);
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error(`Error in set_brightness for channel ${channel}:`, textStatus, errorThrown);
-                    setTimeout(() => {
-                        startPcaStateInterval();
-                    }, 800);
-                }
-            });
-        }
-
-        const debouncedSetBrightness = debounce(setBrightness, 100);
-
-        function toggleLight(type, channel, slider) {
-            const isOn = $(slider).hasClass('on');
-            const state = isOn ? 'off' : 'on';
-            const value = state === 'on' ? 100 : 0;
-            console.log(`Toggling ${type} channel ${channel} to ${state}`);
-            $(`#pca-value-${channel}`).text(value + '%');
-            $(`#pca-${channel}`).val(value);
-            $(`#pca-${channel}`).css('--value', value + '%');
-            lastSetBrightness[channel] = value;
-            if (state === 'on') {
-                $(slider).addClass('on');
-            } else {
-                $(slider).removeClass('on');
-            }
-            $.ajax({
-                url: '/toggle',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ type: type, channel: channel, state: state }),
-                success: function(response) {
-                    console.log(`Toggle success for channel ${channel}:`, response);
-                    setTimeout(() => {
-                        fetchPcaStates();
-                    }, 800);
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error(`Error in toggle for channel ${channel}:`, textStatus, errorThrown);
-                    setTimeout(() => {
-                        startPcaStateInterval();
-                    }, 800);
-                }
-            });
-        }
-
-        function toggleRelay(type, channel, slider) {
-            const isOn = $(slider).hasClass('on');
-            const state = isOn ? 'off' : 'on';
-            console.log(`Toggling relay channel ${channel} to ${state}`);
-            $(`#relay-value-${channel}`).text(state.charAt(0).toUpperCase() + state.slice(1));
-            if (state === 'on') {
-                $(slider).addClass('on');
-            } else {
-                $(slider).removeClass('on');
-            }
-            $.ajax({
-                url: '/toggle',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ type: type, channel: channel, state: state }),
-                success: function(response) {
-                    console.log(`Toggle success for relay ${channel}:`, response);
-                    fetchRelayStates();
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error(`Error in toggleRelay for channel ${channel}:`, textStatus, errorThrown);
-                }
-            });
-        }
-
-        function activateScene(scene) {
-            console.log(`Activating scene ${scene}`);
-            rampFaders();
-            $.ajax({
-                url: '/activate_scene',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ scene: scene }),
-                success: function(response) {
-                    console.log(`Scene ${scene} activated:`, response);
-                    setTimeout(fetchRelayStates, 2100);
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error(`Error in activate_scene for ${scene}:`, textStatus, errorThrown);
-                    setTimeout(() => {
-                        fetchPcaStates();
-                        fetchRelayStates();
-                    }, 100);
-                }
-            });
-        }
-
-        function initiateShutdown() {
-            if (confirm('Are you sure you want to shut down the control system?')) {
-                console.log('Initiating shutdown for both systems');
-                $.ajax({
-                    url: '/shutdown',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ token: 'UVzI8Usfz2zzsgNl0YRGCwGcCvPY4998dUlftEWSTTM' }),
-                    success: function(response) {
-                        console.log('Shutdown command sent:', response);
-                        alert('Both systems are shutting down. Please wait a moment before powering off.');
-                    },
-                    error: function(jqXHR, textStatus, errorThrown) {
-                        console.error('Error initiating shutdown:', textStatus, errorThrown);
-                        alert('Failed to initiate shutdown. Please try again or check the server.');
-                    }
-                });
-            }
-        }
-
-        let pcaStateInterval;
-        function startPcaStateInterval() {
-            if (!pcaStateInterval) {
-                pcaStateInterval = setInterval(fetchPcaStates, 10000);
-                console.log('Started PCA state interval');
-            }
-        }
-
-        function stopPcaStateInterval() {
-            if (pcaStateInterval) {
-                clearInterval(pcaStateInterval);
-                pcaStateInterval = null;
-                console.log('Stopped PCA state interval');
-            }
-        }
-
-		document.querySelectorAll('input[type="range"]:not(#screen-brightness)').forEach(slider => {
-			const updateSlider = (value, channel) => {
-				$(`#pca-value-${channel}`).text(value + '%');
-				slider.style.setProperty('--value', value + '%');
-				slider.value = value;
-				debouncedSetBrightness('pca9685', channel, value);
-			};
-
-			let isMouseDragging = false;
-
-			slider.addEventListener('mousedown', function(e) {
-				e.preventDefault();
-				e.stopPropagation();
-				isMouseDragging = true;
-				const channel = this.dataset.channel;
-				console.log(`Slider mousedown for channel ${channel}`);
-				stopPcaStateInterval();
-			});
-
-			document.addEventListener('mousemove', (e) => {
-				if (!isMouseDragging) return;
-				e.preventDefault();
-				const channel = slider.dataset.channel;
-				const rect = slider.getBoundingClientRect();
-				const totalHeight = rect.height;
-				const mouseY = e.clientY - rect.top;
-				let value = Math.round(((totalHeight - mouseY) / totalHeight) * 100);
-				value = Math.max(0, Math.min(100, value));
-				console.log(`Slider mousemove for channel ${channel}: ${value}%`);
-				updateSlider(value, channel);
-				slider.dispatchEvent(new Event('input'));
-			});
-
-			document.addEventListener('mouseup', (e) => {
-				if (!isMouseDragging) return;
-				const channel = slider.dataset.channel;
-				console.log(`Slider mouseup for channel ${channel}`);
-				isMouseDragging = false;
-				setTimeout(() => {
-					startPcaStateInterval();
-					fetchPcaStates();
-				}, 800);
-			});
-
-			slider.addEventListener('input', function(e) {
-				const value = parseInt(this.value);
-				const channel = this.dataset.channel;
-				console.log(`Slider input for channel ${channel}: ${value}%`);
-				updateSlider(value, channel);
-			});
-
-			slider.addEventListener('touchstart', function(e) {
-				e.preventDefault();
-				const channel = this.dataset.channel;
-				console.log(`Slider touchstart for channel ${channel}`);
-				stopPcaStateInterval();
-				this.classList.add('active');
-			});
-
-			slider.addEventListener('touchmove', function(e) {
-				e.preventDefault();
-				const touch = e.touches[0];
-				const rect = this.getBoundingClientRect();
-				const totalHeight = rect.height;
-				const touchY = touch.clientY - rect.top;
-				let value = Math.round(((totalHeight - touchY) / totalHeight) * 100);
-				value = Math.max(0, Math.min(100, value));
-				const channel = this.dataset.channel;
-				console.log(`Slider touchmove for channel ${channel}: ${value}%`);
-				updateSlider(value, channel);
-				this.dispatchEvent(new Event('input'));
-			});
-
-			slider.addEventListener('touchend', function(e) {
-				e.preventDefault();
-				const channel = this.dataset.channel;
-				console.log(`Slider touchend for channel ${channel}`);
-				this.classList.remove('active');
-				setTimeout(() => {
-					startPcaStateInterval();
-					fetchPcaStates();
-				}, 800);
-			});
-		});
-
+        // Lighting slider pagination
         const lightingSlider = document.querySelector('.lighting-slider');
-        let isDragging = false;
-        let startX;
-        let scrollLeft;
+        const dots = document.querySelectorAll('.pagination-dots .dot');
 
-        function snapToPage(targetPage) {
-            const pageWidth = lightingSlider.clientWidth;
-            targetPage = Math.max(0, Math.min(targetPage, document.querySelectorAll('.lighting-page').length - 1));
-            lightingSlider.scrollTo({
-                left: targetPage * pageWidth,
-                behavior: 'smooth'
-            });
+        // Initialize slider to first page
+        if (lightingSlider) {
+            lightingSlider.scrollLeft = 0;
+            console.log('Diagnostic: Initialized lightingSlider to scrollLeft=0');
+        } else {
+            console.error('Diagnostic: lightingSlider not found');
+            return;
         }
 
-        lightingSlider.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.pageX - lightingSlider.offsetLeft;
-            scrollLeft = lightingSlider.scrollLeft;
-            lightingSlider.style.cursor = 'grabbing';
-        });
-
-        lightingSlider.addEventListener('mouseleave', () => {
-            if (isDragging) {
-                const pageWidth = lightingSlider.clientWidth;
-                snapToPage(Math.round(lightingSlider.scrollLeft / pageWidth));
-            }
-            isDragging = false;
-            lightingSlider.style.cursor = 'grab';
-        });
-
-        lightingSlider.addEventListener('mouseup', (e) => {
-            if (isDragging) {
-                const x = e.pageX - lightingSlider.offsetLeft;
-                const distance = (startX - x) * 2;
-                const pageWidth = lightingSlider.clientWidth;
-                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
-                if (Math.abs(distance) > 30) {
-                    targetPage += distance > 0 ? 1 : -1;
-                }
-                snapToPage(targetPage);
-            }
-            isDragging = false;
-            lightingSlider.style.cursor = 'grab';
-        });
-
-        lightingSlider.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-            const x = e.pageX - lightingSlider.offsetLeft;
-            const walk = (x - startX) * 2;
-            lightingSlider.scrollLeft = scrollLeft - walk;
-        });
-
-        lightingSlider.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            startX = e.touches[0].pageX - lightingSlider.offsetLeft;
-            scrollLeft = lightingSlider.scrollLeft;
-        });
-
-        lightingSlider.addEventListener('touchend', (e) => {
-            if (isDragging) {
-                const x = e.changedTouches[0].pageX - lightingSlider.offsetLeft;
-                const distance = (startX - x) * 2;
-                const pageWidth = lightingSlider.clientWidth;
-                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
-                if (Math.abs(distance) > 30) {
-                    targetPage += distance > 0 ? 1 : -1;
-                }
-                snapToPage(targetPage);
-            }
-            isDragging = false;
-        });
-
-        lightingSlider.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-            const x = e.touches[0].pageX - lightingSlider.offsetLeft;
-            const walk = (x - startX) * 2;
-            lightingSlider.scrollLeft = scrollLeft - walk;
-        });
-
-        const dots = document.querySelectorAll('.pagination-dots .dot');
+        // Update active dot
         function updateActiveDot() {
+            if (!lightingSlider || !dots.length) {
+                console.error('Diagnostic: lightingSlider or dots missing');
+                return;
+            }
             const scrollPos = lightingSlider.scrollLeft;
-            const pageWidth = lightingSlider.clientWidth;
+            const pageWidth = lightingSlider.clientWidth || 1;
             const currentPage = Math.round(scrollPos / pageWidth);
+            console.log(`Diagnostic: updateActiveDot - scrollPos=${scrollPos}, pageWidth=${pageWidth}, currentPage=${currentPage}`);
             dots.forEach((dot, index) => {
                 dot.classList.toggle('active', index === currentPage);
             });
         }
 
-        lightingSlider.addEventListener('scroll', updateActiveDot);
+        setTimeout(() => updateActiveDot(), 100);
 
+        // Dot click handler
         dots.forEach(dot => {
-            dot.addEventListener('click', () => {
+            dot.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 const page = parseInt(dot.dataset.page);
+                if (isNaN(page)) {
+                    console.error(`Diagnostic: Invalid data-page for dot: ${dot.dataset.page}`);
+                    return;
+                }
+                console.log(`Diagnostic: Dot clicked, navigating to page ${page}`);
+                const pageWidth = lightingSlider.clientWidth;
                 lightingSlider.scrollTo({
-                    left: page * lightingSlider.clientWidth,
+                    left: page * pageWidth,
                     behavior: 'smooth'
                 });
+                setTimeout(updateActiveDot, 300);
             });
         });
 
-		function updateThemeBasedOnTime(sunrise, sunset) {
-			if (!$('#auto-theme-toggle').prop('checked')) {
-				console.log('Auto-theme disabled, skipping time-based theme update');
-				return;
-			}
+        const debouncedUpdateActiveDot = debounce(updateActiveDot, 100);
+        lightingSlider.addEventListener('scroll', debouncedUpdateActiveDot);
 
-			// Clean sunrise and sunset strings
-			sunrise = sunrise.replace('*', '').trim();
-			sunset = sunset.replace('*', '').trim();
+		// Swipe handling
+		let isDragging = false;
+		let startX = 0;
+		let scrollLeft = 0;
 
-			// Get current time
-			let currentTimeStr = $('#current_datetime').text().replace('*', '').trim();
-			let now;
-			try {
-				now = new Date(currentTimeStr);
-				if (isNaN(now.getTime())) {
-					console.warn('Invalid current time, using system time');
-					now = new Date();
-				}
-			} catch (e) {
-				console.warn('Error parsing current time, using system time:', e);
-				now = new Date();
-			}
-
-			// Use current date for sunrise/sunset
-			const today = now.toDateString();
-
-			// Parse sunrise and sunset times
-			let sunriseTime, sunsetTime;
-			try {
-				sunriseTime = new Date(`${today} ${sunrise}`);
-				sunsetTime = new Date(`${today} ${sunset}`);
-				if (sunsetTime < sunriseTime) {
-					sunsetTime.setDate(sunsetTime.getDate() - 1);
-				}
-			} catch (e) {
-				console.error('Error parsing sunrise/sunset:', e, 'Sunrise:', sunrise, 'Sunset:', sunset);
-				return;
-			}
-
-			console.log('Now:', now, 'Sunrise:', sunriseTime, 'Sunset:', sunsetTime);
-
-			// Apply theme based on time
-			if (now >= sunriseTime && now < sunsetTime) {
-				$('body').removeClass('dark-mode');
-				$('#dark-mode-toggle').prop('checked', false);
-				$('#dark-mode-toggle').parent().removeClass('on');
-			} else {
-				$('body').addClass('dark-mode');
-				$('#dark-mode-toggle').prop('checked', true);
-				$('#dark-mode-toggle').parent().addClass('on');
-			}
-
-			// Save the updated config
-			saveConfig();
+		// Snap to page
+		function snapToPage(targetPage, instant = false) {
+			const pageWidth = lightingSlider.clientWidth || 1;
+			const maxPage = dots.length - 1;
+			targetPage = Math.max(0, Math.min(targetPage, maxPage));
+			const targetScroll = targetPage * pageWidth;
+			console.log(`Diagnostic: Snapping to page ${targetPage}, pageWidth=${pageWidth}, targetScroll=${targetScroll}, instant=${instant}`);
+			lightingSlider.scrollTo({
+				left: targetScroll,
+				behavior: instant ? 'auto' : 'smooth'
+			});
+			setTimeout(updateActiveDot, 50); // Reduced delay for faster dot update
 		}
 
-        function applyDefaultTheme(theme) {
-            if (theme === 'dark') {
-                $('body').addClass('dark-mode');
-                $('#dark-mode-toggle').prop('checked', true);
-                $('#dark-mode-toggle').parent().addClass('on');
-            } else {
-                $('body').removeClass('dark-mode');
-                $('#dark-mode-toggle').prop('checked', false);
-                $('#dark-mode-toggle').parent().removeClass('on');
-            }
-            saveConfig();
-        }
+		// Mouse events
+		lightingSlider.addEventListener('mousedown', (e) => {
+			isDragging = true;
+			startX = e.pageX - lightingSlider.offsetLeft;
+			scrollLeft = lightingSlider.scrollLeft;
+			lightingSlider.style.cursor = 'grabbing';
+			console.log(`Diagnostic: Mouse down at X=${startX}, scrollLeft=${scrollLeft}`);
+		});
 
-        function saveConfig() {
-            const config = {
-                theme: {
-                    darkMode: $('#dark-mode-toggle').prop('checked') ? 'on' : 'off',
-                    autoTheme: $('#auto-theme-toggle').prop('checked') ? 'on' : 'off',
-                    defaultTheme: $('#default-theme').val()
-                },
-                screenBrightness: $('#screen-brightness').val()
+		lightingSlider.addEventListener('mousemove', (e) => {
+			if (!isDragging) return;
+			const x = e.pageX - lightingSlider.offsetLeft;
+			const walk = (x - startX) * 3; // Increased multiplier for faster movement
+			lightingSlider.scrollLeft = scrollLeft - walk;
+			console.log(`Diagnostic: Mouse move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
+		});
+
+		lightingSlider.addEventListener('mouseup', (e) => {
+			if (isDragging) {
+				const x = e.pageX - lightingSlider.offsetLeft;
+				const distance = (startX - x) * 3; // Match multiplier
+				const pageWidth = lightingSlider.clientWidth || 1;
+				let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+				if (Math.abs(distance) > 15) { // Lowered threshold for flick
+					targetPage += distance > 0 ? 1 : -1;
+					snapToPage(targetPage, true); // Instant snap for flick
+				} else {
+					snapToPage(targetPage); // Smooth snap for drag
+				}
+			}
+			isDragging = false;
+			lightingSlider.style.cursor = 'grab';
+			console.log('Diagnostic: Mouse up');
+		});
+
+		lightingSlider.addEventListener('mouseleave', () => {
+			if (isDragging) {
+				const pageWidth = lightingSlider.clientWidth || 1;
+				snapToPage(Math.round(lightingSlider.scrollLeft / pageWidth));
+			}
+			isDragging = false;
+			lightingSlider.style.cursor = 'grab';
+			console.log('Diagnostic: Mouse leave');
+		});
+
+		// Touch events
+		lightingSlider.addEventListener('touchstart', (e) => {
+			if (e.touches.length > 1) return; // Ignore multi-touch
+			isDragging = true;
+			startX = e.touches[0].pageX - lightingSlider.offsetLeft;
+			scrollLeft = lightingSlider.scrollLeft;
+			console.log(`Diagnostic: Touch start at X=${startX}, scrollLeft=${scrollLeft}`);
+		}, { passive: true });
+
+		lightingSlider.addEventListener('touchmove', (e) => {
+			if (!isDragging || e.touches.length > 1) return;
+			const x = e.touches[0].pageX - lightingSlider.offsetLeft;
+			const walk = (x - startX) * 3; // Increased multiplier for faster movement
+			lightingSlider.scrollLeft = scrollLeft - walk;
+			console.log(`Diagnostic: Touch move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
+		}, { passive: true });
+
+		lightingSlider.addEventListener('touchend', (e) => {
+			if (isDragging) {
+				const x = e.changedTouches[0].pageX - lightingSlider.offsetLeft;
+				const distance = (startX - x) * 3; // Match multiplier
+				const pageWidth = lightingSlider.clientWidth || 1;
+				let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+				if (Math.abs(distance) > 15) { // Lowered threshold for flick
+					targetPage += distance > 0 ? 1 : -1;
+					snapToPage(targetPage, true); // Instant snap for flick
+				} else {
+					snapToPage(targetPage); // Smooth snap for drag
+				}
+			}
+			isDragging = false;
+			console.log('Diagnostic: Touch end');
+		}, { passive: true });
+
+		// Prevent overscrolling
+		lightingSlider.addEventListener('scroll', () => {
+			const pageWidth = lightingSlider.clientWidth || 1;
+			const maxScroll = pageWidth * (dots.length - 1);
+			if (lightingSlider.scrollLeft < 0) {
+				lightingSlider.scrollLeft = 0;
+			} else if (lightingSlider.scrollLeft > maxScroll) {
+				lightingSlider.scrollLeft = maxScroll;
+			}
+			debouncedUpdateActiveDot();
+		}, { passive: true });
+
+        // Slider event listeners for lighting controls
+        document.querySelectorAll('input[type="range"]:not(#screen-brightness)').forEach(slider => {
+            const updateSlider = (value, channel) => {
+                $(`#pca-value-${channel}`).text(value + '%');
+                slider.style.setProperty('--value', value + '%');
+                slider.value = value;
+                debouncedSetBrightness('pca9685', channel, value);
             };
-            $.ajax({
-                url: '/save_config',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(config),
-                success: function(response) {
-                    console.log('Config saved:', response);
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error('Error saving config:', textStatus, errorThrown);
+
+            let isDraggingSlider = false;
+
+            // Mouse events
+            slider.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isDraggingSlider = true;
+                const channel = slider.dataset.channel;
+                console.log(`Diagnostic: Slider mousedown for channel ${channel}`);
+                stopPcaStateInterval();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDraggingSlider) return;
+                e.preventDefault();
+                const channel = slider.dataset.channel;
+                const rect = slider.getBoundingClientRect();
+                const totalHeight = rect.height;
+                const mouseY = e.clientY - rect.top;
+                let value = Math.round(((totalHeight - mouseY) / totalHeight) * 100);
+                value = Math.max(0, Math.min(100, value));
+                console.log(`Diagnostic: Slider mousemove for channel ${channel}: ${value}%`);
+                updateSlider(value, channel);
+                slider.dispatchEvent(new Event('input'));
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDraggingSlider) {
+                    const channel = slider.dataset.channel;
+                    console.log(`Diagnostic: Slider mouseup for channel ${channel}`);
+                    isDraggingSlider = false;
+                    setTimeout(() => {
+                        startPcaStateInterval();
+                        fetchPcaStates();
+                    }, 800);
                 }
             });
-        }
 
-        function loadConfig() {
-            $.get('/load_config', function(data) {
-                console.log('Config loaded:', data);
-                if (data.theme) {
-                    if (data.theme.darkMode === 'on') {
-                        $('#dark-mode-toggle').prop('checked', true);
-                        $('#dark-mode-toggle').parent().addClass('on');
-                        $('body').addClass('dark-mode');
-                    } else {
-                        $('#dark-mode-toggle').prop('checked', false);
-                        $('#dark-mode-toggle').parent().removeClass('on');
-                        $('body').removeClass('dark-mode');
-                    }
-                    if (data.theme.autoTheme === 'on') {
-                        $('#auto-theme-toggle').prop('checked', true);
-                        $('#auto-theme-toggle').parent().addClass('on');
-                        $('#default-theme').prop('disabled', true);
-                        $('#default-theme').css('opacity', 0.5);
+            slider.addEventListener('input', (e) => {
+                const value = parseInt(slider.value);
+                const channel = slider.dataset.channel;
+                console.log(`Diagnostic: Slider input for channel ${channel}: ${value}%`);
+                updateSlider(value, channel);
+            });
+
+            // Touch events
+            slider.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isDraggingSlider = true;
+                const channel = slider.dataset.channel;
+                console.log(`Diagnostic: Slider touchstart for channel ${channel}`);
+                stopPcaStateInterval();
+                slider.classList.add('active');
+            });
+
+            slider.addEventListener('touchmove', (e) => {
+                if (!isDraggingSlider) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const channel = slider.dataset.channel;
+                const rect = slider.getBoundingClientRect();
+                const totalHeight = rect.height;
+                const touchY = e.touches[0].clientY - rect.top;
+                let value = Math.round(((totalHeight - touchY) / totalHeight) * 100);
+                value = Math.max(0, Math.min(100, value));
+                console.log(`Diagnostic: Slider touchmove for channel ${channel}: ${value}%`);
+                updateSlider(value, channel);
+                slider.dispatchEvent(new Event('input'));
+            });
+
+            slider.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isDraggingSlider) {
+                    const channel = slider.dataset.channel;
+                    console.log(`Diagnostic: Slider touchend for channel ${channel}`);
+                    isDraggingSlider = false;
+                    slider.classList.remove('active');
+                    setTimeout(() => {
+                        startPcaStateInterval();
+                        fetchPcaStates();
+                    }, 800);
+                }
+            });
+        });
+    } catch (e) {
+        console.error('Diagnostic: Error in document.ready:', e);
+    }
+});
+
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+let lastSetBrightness = {};
+
+function fetchData() {
+    $.get('/get_data', function(data) {
+        console.log('Diagnostic: Raw data fetched:', data);
+        console.log('Diagnostic: Tank level:', data.tank_level);
+        $('#sunrise').text(data.sunrise === "---" || !data.sunrise ? "---" : data.sunrise);
+        $('#sunset').text(data.sunset === "---" || !data.sunset ? "---" : data.sunset);
+        $('#current_datetime').text(data.current_datetime === "---" || !data.current_datetime ? "---" : data.current_datetime);
+        $('#temperature').text(data.temperature !== 'N/A' ? data.temperature + '°C' : 'N/A');
+        $('#battery_level').text(data.battery_level && data.battery_level !== 'N/A' ? data.battery_level : 'N/A');
+        $('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level + '% Full' : 'Error').toggleClass('error', data.tank_level === 'N/A');
+        $('#storage_panel').text(data.storage_panel || 'Unknown');
+        $('#rear_drawer').text(data.rear_drawer || 'Unknown');
+        const gpsFix = data.gps_fix || 'No';
+        const gpsSatellites = data.gps_quality.match(/\d+/) ? data.gps_quality.match(/\d+/)[0] : '0';
+        const gpsDisplay = gpsFix === 'Yes' ? `${gpsSatellites} Satellites` : 'No';
+        $('#gps_fix').text(gpsDisplay);
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Diagnostic: Error fetching /get_data:', textStatus, errorThrown);
+        console.log('Diagnostic: Response text:', jqXHR.responseText);
+        console.log('Diagnostic: Setting tank_level to N/A due to server failure');
+        $('#sunrise').text('---');
+        $('#sunset').text('---');
+        $('#current_datetime').text('---');
+        $('#temperature').text('N/A');
+        $('#battery_level').text('N/A');
+        $('#tank_level').text('Error').toggleClass('error', true);
+        $('#storage_panel').text('Unknown');
+        $('#rear_drawer').text('Unknown');
+        $('#gps_fix').text('No');
+    });
+}
+
+function fetchPcaStates() {
+    $.get('/get_pca_states', function(data) {
+        try {
+            const states = typeof data === 'string' ? JSON.parse(data) : data;
+            console.log('Diagnostic: PCA states received:', states);
+            Object.keys(states).forEach(channel => {
+                if (['3', '9'].includes(channel)) {
+                    console.log(`Diagnostic: Skipping channel ${channel}`);
+                    return;
+                }
+                const brightness = parseInt(states[channel]) || 0;
+                const valueElement = $(`#pca-value-${channel}`);
+                const sliderElement = $(`#pca-${channel}`);
+                const toggleSlider = $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`);
+                if (!valueElement.length || !sliderElement.length || !toggleSlider.length) {
+                    console.warn(`Diagnostic: Missing elements for channel ${channel}`);
+                    return;
+                }
+                if (lastSetBrightness[channel] && Math.abs(brightness - lastSetBrightness[channel]) > 10) {
+                    console.log(`Diagnostic: Ignoring erratic update for channel ${channel}`);
+                    return;
+                }
+                console.log(`Diagnostic: Updating channel ${channel}: brightness=${brightness}%`);
+                valueElement.text(brightness + '%');
+                sliderElement.val(brightness);
+                sliderElement[0].style.setProperty('--value', brightness + '%');
+                if (brightness > 0) {
+                    toggleSlider.addClass('on');
+                } else {
+                    toggleSlider.removeClass('on');
+                }
+            });
+        } catch (e) {
+            console.error('Diagnostic: Error parsing /get_pca_states:', e);
+        }
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Diagnostic: Error fetching /get_pca_states:', textStatus, errorThrown);
+    });
+}
+
+function fetchRelayStates() {
+    $.get('/get_relay_states', function(data) {
+        console.log('Diagnostic: Relay states received:', data);
+        Object.keys(data).forEach(channel => {
+            const state = data[channel] ? 'On' : 'Off';
+            const toggleSlider = $(`#relay-value-${channel}`).closest('.control-item').find('.toggle-slider');
+            $(`#relay-value-${channel}`).text(state);
+            if (state === 'On') {
+                toggleSlider.addClass('on');
+            } else {
+                toggleSlider.removeClass('on');
+            }
+        });
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Diagnostic: Error fetching /get_relay_states:', textStatus, errorThrown);
+    });
+}
+
+function setBrightness(type, channel, value) {
+    console.log(`Diagnostic: Setting ${type} channel ${channel} to ${value}%`);
+    $(`#pca-value-${channel}`).text(value + '%');
+    lastSetBrightness[channel] = value;
+    stopPcaStateInterval();
+    $.ajax({
+        url: '/set_brightness',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ type: type, channel: channel, brightness: value }),
+        success: function(response) {
+            console.log(`Diagnostic: Set brightness success for channel ${channel}:`, response);
+            setTimeout(() => {
+                fetchPcaStates();
+                startPcaStateInterval();
+            }, 800);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error(`Diagnostic: Error in set_brightness for channel ${channel}:`, textStatus, errorThrown);
+            setTimeout(() => {
+                startPcaStateInterval();
+            }, 800);
+        }
+    });
+}
+
+const debouncedSetBrightness = debounce(setBrightness, 100);
+
+function toggleLight(type, channel, slider) {
+    const isOn = $(slider).hasClass('on');
+    const state = isOn ? 'off' : 'on';
+    const value = state === 'on' ? 100 : 0;
+    console.log(`Diagnostic: Toggling ${type} channel ${channel} to ${state}`);
+    $(`#pca-value-${channel}`).text(value + '%');
+    $(`#pca-${channel}`).val(value);
+    $(`#pca-${channel}`).css('--value', value + '%');
+    lastSetBrightness[channel] = value;
+    if (state === 'on') {
+        $(slider).addClass('on');
+    } else {
+        $(slider).removeClass('on');
+    }
+    $.ajax({
+        url: '/toggle',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ type: type, channel: channel, state: state }),
+        success: function(response) {
+            console.log(`Diagnostic: Toggle success for channel ${channel}:`, response);
+            setTimeout(() => {
+                fetchPcaStates();
+            }, 800);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error(`Diagnostic: Error in toggle for channel ${channel}:`, textStatus, errorThrown);
+            setTimeout(() => {
+                startPcaStateInterval();
+            }, 800);
+        }
+    });
+}
+
+function toggleRelay(type, channel, slider) {
+    const isOn = $(slider).hasClass('on');
+    const state = isOn ? 'off' : 'on';
+    console.log(`Diagnostic: Toggling relay channel ${channel} to ${state}`);
+    $(`#relay-value-${channel}`).text(state.charAt(0).toUpperCase() + state.slice(1));
+    if (state === 'on') {
+        $(slider).addClass('on');
+    } else {
+        $(slider).removeClass('on');
+    }
+    $.ajax({
+        url: '/toggle',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ type: type, channel: channel, state: state }),
+        success: function(response) {
+            console.log(`Diagnostic: Toggle success for relay ${channel}:`, response);
+            fetchRelayStates();
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error(`Diagnostic: Error in toggleRelay for channel ${channel}:`, textStatus, errorThrown);
+        }
+    });
+}
+
+function activateScene(scene) {
+    console.log(`Diagnostic: Activating scene ${scene}`);
+    rampFaders();
+    $.ajax({
+        url: '/activate_scene',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ scene: scene }),
+        success: function(response) {
+            console.log(`Diagnostic: Scene ${scene} activated:`, response);
+            setTimeout(fetchRelayStates, 2100);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error(`Diagnostic: Error in activate_scene for ${scene}:`, textStatus, errorThrown);
+            setTimeout(() => {
+                fetchPcaStates();
+                fetchRelayStates();
+            }, 100);
+        }
+    });
+}
+
+function initiateShutdown() {
+    if (confirm('Are you sure you want to shut down the control system?')) {
+        console.log('Diagnostic: Initiating shutdown for both systems');
+        $.ajax({
+            url: '/shutdown',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ token: 'UVzI8Usfz2zzsgNl0YRGCwGcCvPY4998dUlftEWSTTM' }),
+            success: function(response) {
+                console.log('Diagnostic: Shutdown command sent:', response);
+                alert('Both systems are shutting down. Please wait a moment before powering off.');
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('Diagnostic: Error initiating shutdown:', textStatus, errorThrown);
+                alert('Failed to initiate shutdown. Please try again or check the server.');
+            }
+        });
+    }
+}
+
+let pcaStateInterval;
+function startPcaStateInterval() {
+    if (!pcaStateInterval) {
+        pcaStateInterval = setInterval(fetchPcaStates, 10000);
+        console.log('Diagnostic: Started PCA state interval');
+    }
+}
+
+function stopPcaStateInterval() {
+    if (pcaStateInterval) {
+        clearInterval(pcaStateInterval);
+        pcaStateInterval = null;
+        console.log('Diagnostic: Stopped PCA state interval');
+    }
+}
+
+function updateThemeBasedOnTime(sunrise, sunset) {
+    if (!$('#auto-theme-toggle').prop('checked')) {
+        console.log('Diagnostic: Auto-theme disabled, skipping time-based theme update');
+        return;
+    }
+
+    console.log('Diagnostic: Updating theme based on time:', { sunrise, sunset });
+    sunrise = sunrise.replace('*', '').trim();
+    sunset = sunset.replace('*', '').trim();
+
+    let now = new Date();
+    let currentTimeStr = $('#current_datetime').text().replace('*', '').trim();
+    if (currentTimeStr && currentTimeStr !== '---') {
+        try {
+            now = new Date(currentTimeStr);
+            if (isNaN(now.getTime())) {
+                console.warn('Diagnostic: Invalid current time, using system time');
+                now = new Date();
+            }
+        } catch (e) {
+            console.warn('Diagnostic: Error parsing current time, using system time:', e);
+        }
+    }
+
+    let sunriseTime, sunsetTime;
+    const today = now.toDateString();
+    if (sunrise === '---' || sunset === '---' || !sunrise || !sunset) {
+        console.warn('Diagnostic: Invalid sunrise/sunset data, using Melbourne defaults (6 AM / 6 PM)');
+        sunriseTime = new Date(`${today} 06:00`);
+        sunsetTime = new Date(`${today} 18:00`);
+    } else {
+        try {
+            sunriseTime = new Date(`${today} ${sunrise}`);
+            sunsetTime = new Date(`${today} ${sunset}`);
+            if (isNaN(sunriseTime.getTime()) || isNaN(sunsetTime.getTime())) {
+                console.warn('Diagnostic: Invalid sunrise/sunset format, using Melbourne defaults');
+                sunriseTime = new Date(`${today} 06:00`);
+                sunsetTime = new Date(`${today} 18:00`);
+            } else if (sunsetTime < sunriseTime) {
+                sunsetTime.setDate(sunsetTime.getDate() + 1);
+            }
+        } catch (e) {
+            console.error('Diagnostic: Error parsing sunrise/sunset:', e);
+            sunriseTime = new Date(`${today} 06:00`);
+            sunsetTime = new Date(`${today} 18:00`);
+        }
+    }
+
+    console.log('Diagnostic: Applying theme - Now:', now, 'Sunrise:', sunriseTime, 'Sunset:', sunsetTime);
+    const isDark = now < sunriseTime || now >= sunsetTime;
+    $('body').toggleClass('dark-mode', isDark);
+    $('#dark-mode-toggle').prop('checked', isDark).parent().toggleClass('on', isDark);
+}
+
+function applyDefaultTheme(theme) {
+    console.log('Diagnostic: Applying default theme:', theme);
+    const isDark = theme === 'dark';
+    $('body').toggleClass('dark-mode', isDark);
+    $('#dark-mode-toggle').prop('checked', isDark).parent().toggleClass('on', isDark);
+}
+
+function saveConfig() {
+    const config = {
+        theme: {
+            darkMode: $('#dark-mode-toggle').prop('checked') ? 'on' : 'off',
+            autoTheme: $('#auto-theme-toggle').prop('checked') ? 'on' : 'off',
+            defaultTheme: $('#default-theme').val()
+        },
+        screenBrightness: $('#screen-brightness').val()
+    };
+    console.log('Diagnostic: Saving config:', config);
+    $.ajax({
+        url: '/save_config',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(config),
+        success: function(response) {
+            console.log('Diagnostic: Config saved successfully:', response);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error('Diagnostic: Error saving config:', textStatus, errorThrown, 'Response:', jqXHR.responseText);
+        }
+    });
+}
+
+function loadConfig() {
+    console.log('Diagnostic: Loading config from /load_config');
+    $.get('/load_config', function(data) {
+        console.log('Diagnostic: Config loaded:', data);
+        try {
+            if (data && data.theme) {
+                $('#auto-theme-toggle').prop('checked', data.theme.autoTheme === 'on').parent().toggleClass('on', data.theme.autoTheme === 'on');
+                $('#default-theme').val(data.theme.defaultTheme || 'light').prop('disabled', data.theme.autoTheme === 'on').css('opacity', data.theme.autoTheme === 'on' ? 0.5 : 1);
+                $('#dark-mode-toggle').prop('checked', data.theme.darkMode === 'on').parent().toggleClass('on', data.theme.darkMode === 'on');
+
+                if (data.theme.autoTheme === 'on') {
+                    console.log('Diagnostic: Auto-theme enabled, checking sunrise/sunset');
+                    if ($('#sunrise').text() !== '---' && $('#sunset').text() !== '---') {
                         updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
                     } else {
-                        $('#auto-theme-toggle').prop('checked', false);
-                        $('#auto-theme-toggle').parent().removeClass('on');
-                        $('#default-theme').prop('disabled', false);
-                        $('#default-theme').css('opacity', 1);
-                        $('#default-theme').val(data.theme.defaultTheme || 'light');
-                        applyDefaultTheme(data.theme.defaultTheme || 'light');
+                        console.log('Diagnostic: Sunrise/sunset not available, fetching data');
+                        fetchData();
+                        setTimeout(() => {
+                            updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                        }, 1000);
                     }
-                    $('#default-theme').val(data.theme.defaultTheme || 'light');
+                } else {
+                    console.log('Diagnostic: Auto-theme disabled, applying default theme');
+                    applyDefaultTheme(data.theme.defaultTheme || 'light');
                 }
-                if (data.screenBrightness) {
-                    $('#screen-brightness').val(data.screenBrightness);
-                    $('#screen-brightness-value').text(data.screenBrightness + '%');
-                    $('body').css('filter', `brightness(${data.screenBrightness}%)`);
+
+                let brightness = parseInt(data.screenBrightness, 10) || 50;
+                brightness = Math.max(10, Math.min(100, brightness));
+                console.log(`Diagnostic: Applying screen brightness: ${brightness}%`);
+                $('#screen-brightness').val(brightness).css('--value', brightness + '%');
+                $('#screen-brightness-value').text(brightness + '%');
+                $('body').css('filter', `brightness(${brightness}%)`);
+                $('body')[0].offsetHeight;
+            } else {
+                console.warn('Diagnostic: No theme data in config, using defaults');
+                applyDefaultSettings();
+            }
+        } catch (e) {
+            console.error('Diagnostic: Error processing config data:', e);
+            applyDefaultSettings();
+        }
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Diagnostic: Error loading config:', textStatus, errorThrown, 'Response:', jqXHR.responseText);
+        applyDefaultSettings();
+    });
+}
+
+function applyDefaultSettings() {
+    console.warn('Diagnostic: Applying default settings due to config load failure');
+    $('#dark-mode-toggle').prop('checked', false).parent().removeClass('on');
+    $('#auto-theme-toggle').prop('checked', false).parent().removeClass('on');
+    $('#default-theme').val('light').prop('disabled', false).css('opacity', 1);
+    applyDefaultTheme('light');
+    $('#screen-brightness').val(50).css('--value', '50%');
+    $('#screen-brightness-value').text('50%');
+    $('body').css('filter', 'brightness(50%)');
+}
+
+function openSettings() {
+    console.log('Diagnostic: Opening settings modal');
+    $('#settingsModal').fadeIn();
+    openTab('general');
+    positionCloseButton();
+    $(window).off('resize.closeButton').on('resize.closeButton', positionCloseButton);
+
+    // Bind event listeners when modal opens
+    try {
+        if (!$('#dark-mode-toggle').length) console.error('Diagnostic: #dark-mode-toggle not found in modal');
+        if (!$('#auto-theme-toggle').length) console.error('Diagnostic: #auto-theme-toggle not found in modal');
+        if (!$('#default-theme').length) console.error('Diagnostic: #default-theme not found in modal');
+        if (!$('#screen-brightness').length) console.error('Diagnostic: #screen-brightness not found in modal');
+
+        $('#settingsModal').off('change', '.settings-toggle input[type="checkbox"]');
+        $('#settingsModal').off('change', '#default-theme');
+        $('#settingsModal').off('input', '#screen-brightness');
+
+        $('#settingsModal').on('change', '.settings-toggle input[type="checkbox"]', function() {
+            const $checkbox = $(this);
+            const toggle = $checkbox.parent();
+            toggle.toggleClass('on', $checkbox.prop('checked'));
+            console.log('Diagnostic: Toggle changed:', $checkbox.attr('id'), 'Checked:', $checkbox.prop('checked'));
+            if ($checkbox.attr('id') === 'dark-mode-toggle') {
+                console.log('Diagnostic: Toggling dark mode:', $checkbox.prop('checked'));
+                $('body').toggleClass('dark-mode', $checkbox.prop('checked'));
+                saveConfig();
+            }
+            if ($checkbox.attr('id') === 'auto-theme-toggle') {
+                console.log('Diagnostic: Toggling auto-theme:', $checkbox.prop('checked'));
+                if ($checkbox.prop('checked')) {
+                    $('#default-theme').prop('disabled', true).css('opacity', 0.5);
+                    if ($('#sunrise').text() === '---' || $('#sunset').text() === '---') {
+                        console.log('Diagnostic: Sunrise/sunset not available, fetching data');
+                        fetchData();
+                        setTimeout(() => {
+                            updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                        }, 1000);
+                    } else {
+                        updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                    }
+                } else {
+                    $('#default-theme').prop('disabled', false).css('opacity', 1);
+                    applyDefaultTheme($('#default-theme').val());
                 }
-            }).fail(function(jqXHR, textStatus, errorThrown) {
-                console.error('Error loading config:', textStatus, errorThrown);
-                // Fallback to default settings
-                $('#dark-mode-toggle').prop('checked', false);
-                $('#dark-mode-toggle').parent().removeClass('on');
-                $('#auto-theme-toggle').prop('checked', false);
-                $('#auto-theme-toggle').parent().removeClass('on');
-                $('#default-theme').val('light');
-                applyDefaultTheme('light');
-                $('#screen-brightness').val(50);
+                saveConfig();
+            }
+        });
+
+        $('#settingsModal').on('change', '#default-theme', function() {
+            console.log('Diagnostic: Default theme changed:', $(this).val());
+            if (!$('#auto-theme-toggle').prop('checked')) {
+                applyDefaultTheme($(this).val());
+            }
+            saveConfig();
+        });
+
+        $('#settingsModal').on('input', '#screen-brightness', function() {
+            const value = parseInt(this.value, 10);
+            console.log('Diagnostic: Screen brightness input:', value);
+            if (isNaN(value) || value < 10 || value > 100) {
+                console.warn('Diagnostic: Invalid brightness value:', value, 'Resetting to 50');
+                this.value = 50;
                 $('#screen-brightness-value').text('50%');
                 $('body').css('filter', 'brightness(50%)');
-            });
-        }
+                this.style.setProperty('--value', '50%');
+            } else {
+                $('#screen-brightness-value').text(value + '%');
+                $('body').css('filter', `brightness(${value}%)`);
+                this.style.setProperty('--value', value + '%');
+            }
+            $('body')[0].offsetHeight;
+            console.log('Diagnostic: Set screen brightness to', value + '%');
+            saveConfig();
+        });
+    } catch (e) {
+        console.error('Diagnostic: Error binding settings event listeners:', e);
+    }
+}
 
-        function openSettings() {
-            $('#settingsModal').fadeIn();
-            openTab('general');
-            positionCloseButton();
-            $(window).off('resize.closeButton').on('resize.closeButton', positionCloseButton);
-        }
+function positionCloseButton() {
+    const $settingsContent = $('.settings-content');
+    const $closeButton = $('.close-settings');
+    const contentRect = $settingsContent[0].getBoundingClientRect();
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const buttonWidth = $closeButton.outerWidth();
 
-        function positionCloseButton() {
-            const $settingsContent = $('.settings-content');
-            const $closeButton = $('.close-settings');
-            const contentRect = $settingsContent[0].getBoundingClientRect();
-            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-            const buttonWidth = $closeButton.outerWidth();
+    const targetRight = contentRect.right + 1.5 * rem;
+    const leftPosition = targetRight - buttonWidth;
 
-            const targetRight = contentRect.right + 1.5 * rem;
-            const leftPosition = targetRight - buttonWidth;
+    $closeButton.css({
+        position: 'fixed',
+        top: (contentRect.top - 1.5 * rem) + 'px',
+        left: leftPosition + 'px'
+    });
 
-            $closeButton.css({
-                position: 'fixed',
-                top: (contentRect.top - 1.5 * rem) + 'px',
-                left: leftPosition + 'px'
-            });
+    console.log('Diagnostic: Positioning close button:', { contentRect, buttonWidth, targetRight, leftPosition });
+}
 
-            console.log('contentRect:', contentRect);
-            console.log('buttonWidth:', buttonWidth);
-            console.log('targetRight:', targetRight);
-            console.log('calculated left:', leftPosition);
-            console.log('viewport width:', window.innerWidth);
-        }
+function closeSettings(event) {
+    event.stopPropagation();
+    console.log('Diagnostic: Closing settings modal');
+    $('#settingsModal').fadeOut();
+    $(window).off('resize.closeButton');
+}
 
-        function closeSettings(event) {
-            event.stopPropagation();
-            $('#settingsModal').fadeOut();
-            $(window).off('resize.closeButton');
-        }
+function openTab(tabName) {
+    console.log('Diagnostic: Opening tab:', tabName);
+    $('.tab-content').removeClass('active');
+    $('.tab-btn').removeClass('active');
+    $('#' + tabName + '-tab').addClass('active');
+    $(`[onclick="openTab('${tabName}')"]`).addClass('active');
+}
 
-        function openTab(tabName) {
-            $('.tab-content').removeClass('active');
-            $('.tab-btn').removeClass('active');
-            $('#' + tabName + '-tab').addClass('active');
-            $('[onclick="openTab(\'' + tabName + '\')"]').addClass('active');
-        }
+function rampFaders() {
+    const rampDuration = 2000;
+    const stepInterval = 100;
+    const steps = Math.ceil(rampDuration / stepInterval);
+    let currentStep = 0;
 
-        function rampFaders() {
-            const rampDuration = 2000;
-            const stepInterval = 100;
-            const steps = Math.ceil(rampDuration / stepInterval);
-            let currentStep = 0;
-
-            console.log('Starting fader ramp polling');
-            const interval = setInterval(() => {
-                $.get('/get_pca_states', function(data) {
-                    try {
-                        const states = typeof data === 'string' ? JSON.parse(data) : data;
-                        console.log(`Fader ramp step ${currentStep + 1}:`, states);
-                        Object.keys(states).forEach(channel => {
-                            if (['3', '9'].includes(channel)) {
-                                console.log(`Skipping channel ${channel}`);
-                                return;
-                            }
-                            const brightness = parseInt(states[channel]) || 0;
-                            const valueElement = $(`#pca-value-${channel}`);
-                            const sliderElement = $(`#pca-${channel}`);
-                            const toggleSlider = $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`);
-                            if (!valueElement.length || !sliderElement.length || !toggleSlider.length) {
-                                console.warn(`Missing elements for channel ${channel}`);
-                                return;
-                            }
-                            valueElement.text(brightness + '%');
-                            sliderElement.val(brightness);
-                            sliderElement[0].style.setProperty('--value', brightness + '%');
-                            if (brightness > 0) {
-                                toggleSlider.addClass('on');
-                            } else {
-                                toggleSlider.removeClass('on');
-                            }
-                        });
-                    } catch (e) {
-                        console.error('Error parsing /get_pca_states during ramp:', e);
+    console.log('Diagnostic: Starting fader ramp polling');
+    const interval = setInterval(() => {
+        $.get('/get_pca_states', function(data) {
+            try {
+                const states = typeof data === 'string' ? JSON.parse(data) : data;
+                console.log(`Diagnostic: Fader ramp step ${currentStep + 1}:`, states);
+                Object.keys(states).forEach(channel => {
+                    if (['3', '9'].includes(channel)) {
+                        console.log(`Diagnostic: Skipping channel ${channel}`);
+                        return;
                     }
-                }).fail(function(jqXHR, textStatus, errorThrown) {
-                    console.error('Error fetching /get_pca_states during ramp:', textStatus, errorThrown);
+                    const brightness = parseInt(states[channel]) || 0;
+                    const valueElement = $(`#pca-value-${channel}`);
+                    const sliderElement = $(`#pca-${channel}`);
+                    const toggleSlider = $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`);
+                    if (!valueElement.length || !sliderElement.length || !toggleSlider.length) {
+                        console.warn(`Diagnostic: Missing elements for channel ${channel}`);
+                        return;
+                    }
+                    valueElement.text(brightness + '%');
+                    sliderElement.val(brightness);
+                    sliderElement[0].style.setProperty('--value', brightness + '%');
+                    if (brightness > 0) {
+                        toggleSlider.addClass('on');
+                    } else {
+                        toggleSlider.removeClass('on');
+                    }
                 });
+            } catch (e) {
+                console.error('Diagnostic: Error parsing /get_pca_states during ramp:', e);
+            }
+        }).fail(function(jqXHR, textStatus, errorThrown) {
+            console.error('Diagnostic: Error fetching /get_pca_states during ramp:', textStatus, errorThrown);
+        });
 
-                currentStep++;
-                if (currentStep >= steps) {
-                    clearInterval(interval);
-                    console.log('Finished fader ramp polling');
-                    setTimeout(fetchPcaStates, 100);
-                }
-            }, stepInterval);
+        currentStep++;
+        if (currentStep >= steps) {
+            clearInterval(interval);
+            console.log('Diagnostic: Finished fader ramp polling');
+            setTimeout(fetchPcaStates, 100);
         }
-    </script>
+    }, stepInterval);
+}
+
+function refreshPage() {
+    console.log('Diagnostic: Refreshing page');
+    location.reload();
+}
+</script>
 </body>
 </html>

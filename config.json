@@ -80,6 +80,7 @@
     "scenes": {
         "evening": {
             "pca9685": {
+                "1": 80,
                 "4": 80,
                 "7": 100,
                 "11": 50,
@@ -187,7 +188,7 @@
     "theme": {
         "darkMode": "on",
         "autoTheme": "off",
-        "defaultTheme": "light",
+        "defaultTheme": "dark",
         "screenBrightness": "100"
     }
 }
