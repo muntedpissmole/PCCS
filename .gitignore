@@ -28,3 +28,5 @@ build/
 .idea/
 .vscode/
 .lgd-nfy0
+
+.gitignore
