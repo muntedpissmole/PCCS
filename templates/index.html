@@ -11,7 +11,6 @@
 </head>
 <body>
     <div class="container">
-        <i class="fas fa-gear gear-icon" onclick="openSettings()"></i>
         <div class="scenes-panel glass">
             <div class="scenes-grid">
                 {% for scene in scenes %}
@@ -67,100 +66,334 @@
                 </div>
             </div>
         </div>
-        <div class="lighting-panel glass">
-            <div class="lighting-slider">
-                {% set pca_channels = pca9685_channels.items()|rejectattr('0', 'in', ['3', '9'])|list %}
-                {% for i in range(0, pca_channels|length, 6) %}
-                    <div class="lighting-page">
-                        <div class="lighting-grid">
-                            {% for channel, info in pca_channels[i:i+6] %}
-                                <div class="control-item">
-                                    <label>{{ info.name }}</label>
-                                    <span class="brightness-value" id="pca-value-{{ channel }}">0%</span>
-                                    <input type="range" min="0" max="100" value="0" id="pca-{{ channel }}"
-                                           orient="vertical" data-channel="{{ channel }}" aria-label="Adjust brightness for {{ info.name }}">
-                                    <div class="toggle-slider" onclick="toggleLight('pca9685', '{{ channel }}', this)">
-                                        <div class="slider-circle"></div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endfor %}
-                <div class="lighting-page relay-page">
-                    <div class="relay-grid">
-                        {% for channel, info in relay_channels.items() %}
-                            <div class="control-item">
-                                <label>{{ info.name }}</label>
-                                <span class="switch-state" id="relay-value-{{ channel }}">Off</span>
-                                <div class="toggle-slider" onclick="toggleRelay('relays', '{{ channel }}', this)">
-                                    <div class="slider-circle"></div>
-                                </div>
-                            </div>
-                        {% endfor %}
+		<div class="lighting-panel glass">
+			<div class="lighting-slider">
+				{% set pca_channels = pca9685_channels.items()|rejectattr('0', 'in', ['3', '9'])|list %}
+				{% for i in range(0, pca_channels|length, 6) %}
+					<div class="lighting-page">
+						<div class="lighting-grid">
+							{% for channel, info in pca_channels[i:i+6] %}
+								<div class="control-item">
+									<label>{{ info.name }}</label>
+									<span class="brightness-value" id="pca-value-{{ channel }}">0%</span>
+									<input type="range" min="0" max="100" value="0" id="pca-{{ channel }}"
+										   orient="vertical" data-channel="{{ channel }}" aria-label="Adjust brightness for {{ info.name }}">
+									<div class="toggle-slider" onclick="toggleLight('pca9685', '{{ channel }}', this)">
+										<div class="slider-circle"></div>
+									</div>
+								</div>
+							{% endfor %}
+						</div>
+					</div>
+				{% endfor %}
+				<div class="lighting-page relay-page">
+					<div class="relay-grid">
+						{% for channel, info in relay_channels.items() %}
+							<div class="control-item">
+								<label>{{ info.name }}</label>
+								<span class="switch-state" id="relay-value-{{ channel }}">Off</span>
+								<div class="toggle-slider" onclick="toggleRelay('relays', '{{ channel }}', this)">
+									<div class="slider-circle"></div>
+								</div>
+							</div>
+						{% endfor %}
+					</div>
+				</div>
+			</div>
+			<div class="pagination-dots">
+				{% for i in range(0, pca_channels|length, 6) %}
+					<span class="dot" data-page="{{ loop.index0 }}"></span>
+				{% endfor %}
+				<span class="dot" data-page="{{ (pca_channels|length / 6)|int }}"></span>
+			</div>
+			<i class="fas fa-sync-alt refresh-icon" onclick="refreshPage()"></i>
+			<i class="fas fa-gear gear-icon" onclick="openSettings()"></i>
+		</div>
+    </div>
+    <div class="settings-modal" id="settingsModal">
+        <span class="close-settings" onclick="closeSettings(event)"><i class="fas fa-times"></i></span>
+        <div class="settings-content">
+            <div class="settings-tabs">
+                <button class="tab-btn active" onclick="openTab('general')">General</button>
+                <button class="tab-btn" onclick="openTab('scene-editor')">Scene Editor</button>
+                <button class="tab-btn" onclick="openTab('event-scheduler')">Event Scheduler</button>
+            </div>
+            <div id="general-tab" class="tab-content active">
+                <h2>General Settings</h2>
+                <div class="setting-item">
+                    <span>Screen Brightness:</span>
+                    <div class="slider-container">
+                        <input type="range" min="10" max="100" value="50" id="screen-brightness" class="range-slider">
+                        <span id="screen-brightness-value">50%</span>
                     </div>
                 </div>
+                <div class="setting-item">
+                    <span>Dark Mode:</span>
+                    <label class="settings-toggle" for="dark-mode-toggle">
+                        <input type="checkbox" id="dark-mode-toggle" class="toggle-input">
+                        <span class="slider-circle"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <span>Auto Theme Switch:</span>
+                    <label class="settings-toggle" for="auto-theme-toggle">
+                        <input type="checkbox" id="auto-theme-toggle" class="toggle-input">
+                        <span class="slider-circle"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <span>Default Theme:</span>
+                    <select id="default-theme" disabled>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
+                </div>
             </div>
-            <div class="pagination-dots">
-                {% for i in range(0, pca_channels|length, 6) %}
-                    <span class="dot" data-page="{{ loop.index0 }}"></span>
-                {% endfor %}
-                <span class="dot" data-page="{{ (pca_channels|length / 6)|int }}"></span>
+            <div id="scene-editor-tab" class="tab-content">
+                <h2>Scene Editor</h2>
+                <p>(Coming Soon)</p>
             </div>
+            <div id="event-scheduler-tab" class="tab-content">
+                <h2>Event Scheduler</h2>
+                <p>(Coming Soon)</p>
+            </div>
+            <div class="version">Version: 0.3.0-alpha3</div>
         </div>
-        <div class="version">Version: 0.3.0-alpha3</div>
     </div>
-	<div class="settings-modal" id="settingsModal">
-		<div class="settings-content">
-			<span class="close-settings" onclick="closeSettings()"><i class="fas fa-times"></i></span>
-			<div class="settings-tabs">
-				<button class="tab-btn active" onclick="openTab('general')">General</button>
-				<button class="tab-btn" onclick="openTab('scene-editor')">Scene Editor</button>
-				<button class="tab-btn" onclick="openTab('event-scheduler')">Event Scheduler</button>
-			</div>
-			<div id="general-tab" class="tab-content active">
-				<h2>General Settings</h2>
-				<div class="setting-item">
-					<span>Screen Brightness:</span>
-					<div class="slider-container">
-						<input type="range" min="10" max="100" value="50" id="screen-brightness" class="range-slider">
-						<span id="screen-brightness-value">50%</span>
-					</div>
-				</div>
-				<div class="setting-item">
-					<span>Dark Mode:</span>
-					<div class="dark-mode-toggle" id="dark-mode-toggle">
-						<div class="slider-circle"></div>
-					</div>
-				</div>
-				<div class="setting-item">
-					<span>Auto Theme Switch:</span>
-					<div class="dark-mode-toggle" id="auto-theme-toggle">
-						<div class="slider-circle"></div>
-					</div>
-				</div>
-				<div class="setting-item">
-					<span>Default Theme:</span>
-					<select id="default-theme" disabled>
-						<option value="light">Light</option>
-						<option value="dark">Dark</option>
-					</select>
-				</div>
-				<div class="setting-item">
-					<button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
-				</div>
-			</div>
-			<div id="scene-editor-tab" class="tab-content">
-				<h2>Scene Editor</h2>
-				<p>(Coming Soon)</p>
-			</div>
-			<div id="event-scheduler-tab" class="tab-content">
-				<h2>Event Scheduler</h2>
-				<p>(Coming Soon)</p>
-			</div>
-		</div>
-	</div>
+
     <script>
+$(document).ready(function() {
+    console.log('Page loaded, starting state fetches');
+    loadConfig();
+    fetchData();
+    fetchPcaStates();
+    fetchRelayStates(); // Run once on startup
+    setInterval(fetchData, 5000); // Poll sensor data every 5 seconds
+    startPcaStateInterval(); // Poll PCA states every 10 seconds
+    updateActiveDot();
+    
+    // Periodic theme update (every minute)
+    setInterval(() => {
+        if ($('#auto-theme-toggle').prop('checked')) {
+            updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+        }
+    }, 60000);
+
+    // Toggle event listener
+    document.querySelectorAll('.settings-toggle input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const toggle = this.parentElement;
+            toggle.classList.toggle('on', this.checked);
+            console.log('Toggle changed:', this.id, 'Checked:', this.checked);
+            if (this.id === 'dark-mode-toggle') {
+                document.body.classList.toggle('dark-mode', this.checked);
+                saveConfig();
+            }
+            if (this.id === 'auto-theme-toggle') {
+                if (this.checked) {
+                    $('#default-theme').prop('disabled', true);
+                    $('#default-theme').css('opacity', 0.5);
+                    updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                } else {
+                    $('#default-theme').prop('disabled', false);
+                    $('#default-theme').css('opacity', 1);
+                    applyDefaultTheme($('#default-theme').val());
+                }
+                saveConfig();
+            }
+        });
+    });
+
+    $('#default-theme').on('change', function() {
+        applyDefaultTheme($(this).val());
+        saveConfig();
+    });
+
+	$('#screen-brightness').on('input', function() {
+		const value = parseInt(this.value, 10);
+		if (isNaN(value) || value < 10 || value > 100) {
+			console.warn(`Invalid brightness value: ${value}, resetting to 50`);
+			this.value = 50;
+			$('#screen-brightness-value').text('50%');
+			$('body').css('filter', 'brightness(50%)');
+			this.style.setProperty('--value', '50%');
+		} else {
+			$('#screen-brightness-value').text(value + '%');
+			$('body').css('filter', `brightness(${value}%)`);
+			this.style.setProperty('--value', value + '%');
+		}
+		$('body')[0].offsetHeight; // Force repaint
+		console.log(`Set screen brightness to ${value}%`);
+		saveConfig();
+	});
+
+    $('#default-theme').on('change', function() {
+        applyDefaultTheme($(this).val());
+        saveConfig();
+    });
+
+    $('#screen-brightness').on('input', function() {
+        const value = parseInt(this.value, 10);
+        if (isNaN(value) || value < 10 || value > 100) {
+            console.warn(`Invalid brightness value: ${value}, resetting to 50`);
+            this.value = 50;
+            $('#screen-brightness-value').text('50%');
+            $('body').css('filter', 'brightness(50%)');
+        } else {
+            $('#screen-brightness-value').text(value + '%');
+            $('body').css('filter', `brightness(${value}%)`);
+        }
+        // Force repaint
+        $('body')[0].offsetHeight;
+        console.log(`Set screen brightness to ${value}%`);
+        saveConfig();
+    });
+
+    // ... other event listeners remain the same ...
+});
+
+function loadConfig() {
+    $.get('/load_config', function(data) {
+        console.log('Config loaded:', data);
+        // Apply theme settings
+        if (data.theme) {
+            // Set default theme dropdown
+            $('#default-theme').val(data.theme.defaultTheme || 'light');
+
+            // Apply auto-theme toggle
+            if (data.theme.autoTheme === 'on') {
+                $('#auto-theme-toggle').prop('checked', true);
+                $('#auto-theme-toggle').parent().addClass('on');
+                $('#default-theme').prop('disabled', true);
+                $('#default-theme').css('opacity', 0.5);
+                // Defer auto-theme update until sunrise/sunset data is available
+                fetchData().then(() => {
+                    updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                });
+            } else {
+                $('#auto-theme-toggle').prop('checked', false);
+                $('#auto-theme-toggle').parent().removeClass('on');
+                $('#default-theme').prop('disabled', false);
+                $('#default-theme').css('opacity', 1);
+                // Apply dark mode or default theme
+                if (data.theme.darkMode === 'on') {
+                    $('#dark-mode-toggle').prop('checked', true);
+                    $('#dark-mode-toggle').parent().addClass('on');
+                    $('body').addClass('dark-mode');
+                } else {
+                    $('#dark-mode-toggle').prop('checked', false);
+                    $('#dark-mode-toggle').parent().removeClass('on');
+                    $('body').removeClass('dark-mode');
+                    applyDefaultTheme(data.theme.defaultTheme || 'light');
+                }
+            }
+
+            // Apply screen brightness
+            let brightness = parseInt(data.screenBrightness, 10) || 50;
+            brightness = Math.max(10, Math.min(100, brightness));
+            console.log(`Applying screen brightness: ${brightness}%`);
+            $('#screen-brightness').val(brightness);
+            $('#screen-brightness-value').text(brightness + '%');
+            $('body').css('filter', `brightness(${brightness}%)`);
+            // Force repaint
+            $('body')[0].offsetHeight;
+            $('#screen-brightness').trigger('input');
+        } else {
+            console.warn('No theme data in config, using defaults');
+            $('#dark-mode-toggle').prop('checked', false);
+            $('#auto-theme-toggle').prop('checked', false);
+            $('#default-theme').val('light');
+            applyDefaultTheme('light');
+            $('#screen-brightness').val(50);
+            $('#screen-brightness-value').text('50%');
+            $('body').css('filter', 'brightness(50%)');
+        }
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Error loading config:', textStatus, errorThrown, 'Response:', jqXHR.responseText);
+        // Apply default settings
+        $('#dark-mode-toggle').prop('checked', false);
+        $('#auto-theme-toggle').prop('checked', false);
+        $('#default-theme').val('light');
+        applyDefaultTheme('light');
+        $('#screen-brightness').val(50);
+        $('#screen-brightness-value').text('50%');
+        $('body').css('filter', 'brightness(50%)');
+    });
+}
+
+function loadConfig() {
+    $.get('/load_config', function(data) {
+        console.log('Config loaded:', data);
+        // Apply theme settings
+        if (data.theme) {
+            if (data.theme.darkMode === 'on') {
+                $('#dark-mode-toggle').prop('checked', true);
+                $('#dark-mode-toggle').parent().addClass('on');
+                $('body').addClass('dark-mode');
+            } else {
+                $('#dark-mode-toggle').prop('checked', false);
+                $('#dark-mode-toggle').parent().removeClass('on');
+                $('body').removeClass('dark-mode');
+            }
+            if (data.theme.autoTheme === 'on') {
+                $('#auto-theme-toggle').prop('checked', true);
+                $('#auto-theme-toggle').parent().addClass('on');
+                $('#default-theme').prop('disabled', true);
+                $('#default-theme').css('opacity', 0.5);
+                updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+            } else {
+                $('#auto-theme-toggle').prop('checked', false);
+                $('#auto-theme-toggle').parent().removeClass('on');
+                $('#default-theme').prop('disabled', false);
+                $('#default-theme').css('opacity', 1);
+                $('#default-theme').val(data.theme.defaultTheme || 'light');
+                applyDefaultTheme(data.theme.defaultTheme || 'light');
+            }
+            $('#default-theme').val(data.theme.defaultTheme || 'light');
+        }
+        // Apply screen brightness
+        let brightness = 50; // Default
+        if (data.screenBrightness) {
+            brightness = parseInt(data.screenBrightness, 10);
+            if (isNaN(brightness) || brightness < 10 || brightness > 100) {
+                console.warn(`Invalid screenBrightness value: ${data.screenBrightness}, using default 50%`);
+                brightness = 50;
+            }
+        } else {
+            console.warn('No screenBrightness in config, using default 50%');
+        }
+        console.log(`Applying screen brightness: ${brightness}%`);
+        $('#screen-brightness').val(brightness);
+        $('#screen-brightness-value').text(brightness + '%');
+        $('body').css('filter', `brightness(${brightness}%)`);
+        // Force repaint
+        $('body')[0].offsetHeight;
+        // Trigger input event to ensure UI sync
+        $('#screen-brightness').trigger('input');
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Error loading config:', textStatus, errorThrown, 'Response:', jqXHR.responseText);
+        // Apply default settings
+        $('#dark-mode-toggle').prop('checked', false);
+        $('#dark-mode-toggle').parent().removeClass('on');
+        $('#auto-theme-toggle').prop('checked', false);
+        $('#auto-theme-toggle').parent().removeClass('on');
+        $('#default-theme').val('light');
+        applyDefaultTheme('light');
+        // Apply default brightness
+        const brightness = 50;
+        console.log(`Applying default screen brightness: ${brightness}%`);
+        $('#screen-brightness').val(brightness);
+        $('#screen-brightness-value').text(brightness + '%');
+        $('body').css('filter', `brightness(${brightness}%)`);
+        // Force repaint
+        $('body')[0].offsetHeight;
+        $('#screen-brightness').trigger('input');
+    });
+}
+
         function debounce(func, wait) {
             let timeout;
             return function(...args) {
@@ -171,38 +404,38 @@
 
         let lastSetBrightness = {};
 
-        function fetchData() {
-            $.get('/get_data', function(data) {
-                console.log('Raw data fetched:', data);
-                console.log('Tank level:', data.tank_level);
-                $('#sunrise').text(data.sunrise === "---" || !data.sunrise ? "---" : data.sunrise);
-                $('#sunset').text(data.sunset === "---" || !data.sunset ? "---" : data.sunset);
-                $('#current_datetime').text(data.current_datetime === "---" || !data.current_datetime ? "---" : data.current_datetime);
-                $('#temperature').text(data.temperature !== 'N/A' ? data.temperature + '°C' : 'N/A');
-                $('#battery_level').text(data.battery_level && data.battery_level !== 'N/A' ? data.battery_level : 'N/A');
-                $('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level + ' Full' : 'Error').toggleClass('error', data.tank_level === 'N/A');
-                $('#storage_panel').text(data.storage_panel || 'Unknown');
-                $('#rear_drawer').text(data.rear_drawer || 'Unknown');
-                const gpsFix = data.gps_fix || 'No';
-                const gpsSatellites = data.gps_quality.match(/\d+/) ? data.gps_quality.match(/\d+/)[0] : '0';
-                const gpsDisplay = gpsFix === 'Yes' ? `${gpsSatellites} Satellites` : 'No';
-                $('#gps_fix').text(gpsDisplay);
-                updateThemeBasedOnTime(data.sunrise, data.sunset);
-            }).fail(function(jqXHR, textStatus, errorThrown) {
-                console.error('Error fetching /get_data:', textStatus, errorThrown);
-                console.log('Response text:', jqXHR.responseText);
-                console.log('Setting tank_level to N/A due to server failure');
-                $('#sunrise').text('---');
-                $('#sunset').text('---');
-                $('#current_datetime').text('---');
-                $('#temperature').text('N/A');
-                $('#battery_level').text('N/A');
-                $('#tank_level').text('N/A');
-                $('#storage_panel').text('Unknown');
-                $('#rear_drawer').text('Unknown');
-                $('#gps_fix').text('No');
-            });
-        }
+		function fetchData() {
+			$.get('/get_data', function(data) {
+				console.log('Raw data fetched:', data);
+				console.log('Tank level:', data.tank_level);
+				$('#sunrise').text(data.sunrise === "---" || !data.sunrise ? "---" : data.sunrise);
+				$('#sunset').text(data.sunset === "---" || !data.sunset ? "---" : data.sunset);
+				$('#current_datetime').text(data.current_datetime === "---" || !data.current_datetime ? "---" : data.current_datetime);
+				$('#temperature').text(data.temperature !== 'N/A' ? data.temperature + '°C' : 'N/A');
+				$('#battery_level').text(data.battery_level && data.battery_level !== 'N/A' ? data.battery_level : 'N/A');
+				$('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level + '% Full' : 'Error').toggleClass('error', data.tank_level === 'N/A');
+				$('#storage_panel').text(data.storage_panel || 'Unknown');
+				$('#rear_drawer').text(data.rear_drawer || 'Unknown');
+				const gpsFix = data.gps_fix || 'No';
+				const gpsSatellites = data.gps_quality.match(/\d+/) ? data.gps_quality.match(/\d+/)[0] : '0';
+				const gpsDisplay = gpsFix === 'Yes' ? `${gpsSatellites} Satellites` : 'No';
+				$('#gps_fix').text(gpsDisplay);
+				updateThemeBasedOnTime(data.sunrise, data.sunset);
+			}).fail(function(jqXHR, textStatus, errorThrown) {
+				console.error('Error fetching /get_data:', textStatus, errorThrown);
+				console.log('Response text:', jqXHR.responseText);
+				console.log('Setting tank_level to N/A due to server failure');
+				$('#sunrise').text('---');
+				$('#sunset').text('---');
+				$('#current_datetime').text('---');
+				$('#temperature').text('N/A');
+				$('#battery_level').text('N/A');
+				$('#tank_level').text('Error').toggleClass('error', true);
+				$('#storage_panel').text('Unknown');
+				$('#rear_drawer').text('Unknown');
+				$('#gps_fix').text('No');
+			});
+		}
 
         function fetchPcaStates() {
             $.get('/get_pca_states', function(data) {
@@ -351,6 +584,7 @@
 
         function activateScene(scene) {
             console.log(`Activating scene ${scene}`);
+            rampFaders();
             $.ajax({
                 url: '/activate_scene',
                 type: 'POST',
@@ -358,28 +592,29 @@
                 data: JSON.stringify({ scene: scene }),
                 success: function(response) {
                     console.log(`Scene ${scene} activated:`, response);
+                    setTimeout(fetchRelayStates, 2100);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error(`Error in activate_scene for ${scene}:`, textStatus, errorThrown);
                     setTimeout(() => {
                         fetchPcaStates();
                         fetchRelayStates();
                     }, 100);
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error(`Error in activate_scene for ${scene}:`, textStatus, errorThrown);
                 }
             });
         }
 
         function initiateShutdown() {
-            if (confirm('Are you sure you want to shut down the system? This will power off the Raspberry Pi.')) {
-                console.log('Initiating system shutdown');
+            if (confirm('Are you sure you want to shut down the control system?')) {
+                console.log('Initiating shutdown for both systems');
                 $.ajax({
                     url: '/shutdown',
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({ token: 'your-secret-token' }),
+                    data: JSON.stringify({ token: 'UVzI8Usfz2zzsgNl0YRGCwGcCvPY4998dUlftEWSTTM' }),
                     success: function(response) {
                         console.log('Shutdown command sent:', response);
-                        alert('System is shutting down. Please wait a moment before powering off.');
+                        alert('Both systems are shutting down. Please wait a moment before powering off.');
                     },
                     error: function(jqXHR, textStatus, errorThrown) {
                         console.error('Error initiating shutdown:', textStatus, errorThrown);
@@ -405,90 +640,90 @@
             }
         }
 
-        document.querySelectorAll('input[type="range"]').forEach(slider => {
-            const updateSlider = (value, channel) => {
-                $(`#pca-value-${channel}`).text(value + '%');
-                slider.style.setProperty('--value', value + '%');
-                slider.value = value;
-                debouncedSetBrightness('pca9685', channel, value);
-            };
+		document.querySelectorAll('input[type="range"]:not(#screen-brightness)').forEach(slider => {
+			const updateSlider = (value, channel) => {
+				$(`#pca-value-${channel}`).text(value + '%');
+				slider.style.setProperty('--value', value + '%');
+				slider.value = value;
+				debouncedSetBrightness('pca9685', channel, value);
+			};
 
-            let isMouseDragging = false;
+			let isMouseDragging = false;
 
-            slider.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                isMouseDragging = true;
-                const channel = this.dataset.channel;
-                console.log(`Slider mousedown for channel ${channel}`);
-                stopPcaStateInterval();
-            });
+			slider.addEventListener('mousedown', function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				isMouseDragging = true;
+				const channel = this.dataset.channel;
+				console.log(`Slider mousedown for channel ${channel}`);
+				stopPcaStateInterval();
+			});
 
-            document.addEventListener('mousemove', (e) => {
-                if (!isMouseDragging) return;
-                e.preventDefault();
-                const channel = slider.dataset.channel;
-                const rect = slider.getBoundingClientRect();
-                const totalHeight = rect.height;
-                const mouseY = e.clientY - rect.top;
-                let value = Math.round(((totalHeight - mouseY) / totalHeight) * 100);
-                value = Math.max(0, Math.min(100, value));
-                console.log(`Slider mousemove for channel ${channel}: ${value}%`);
-                updateSlider(value, channel);
-                slider.dispatchEvent(new Event('input'));
-            });
+			document.addEventListener('mousemove', (e) => {
+				if (!isMouseDragging) return;
+				e.preventDefault();
+				const channel = slider.dataset.channel;
+				const rect = slider.getBoundingClientRect();
+				const totalHeight = rect.height;
+				const mouseY = e.clientY - rect.top;
+				let value = Math.round(((totalHeight - mouseY) / totalHeight) * 100);
+				value = Math.max(0, Math.min(100, value));
+				console.log(`Slider mousemove for channel ${channel}: ${value}%`);
+				updateSlider(value, channel);
+				slider.dispatchEvent(new Event('input'));
+			});
 
-            document.addEventListener('mouseup', (e) => {
-                if (!isMouseDragging) return;
-                const channel = slider.dataset.channel;
-                console.log(`Slider mouseup for channel ${channel}`);
-                isMouseDragging = false;
-                setTimeout(() => {
-                    startPcaStateInterval();
-                    fetchPcaStates();
-                }, 800);
-            });
+			document.addEventListener('mouseup', (e) => {
+				if (!isMouseDragging) return;
+				const channel = slider.dataset.channel;
+				console.log(`Slider mouseup for channel ${channel}`);
+				isMouseDragging = false;
+				setTimeout(() => {
+					startPcaStateInterval();
+					fetchPcaStates();
+				}, 800);
+			});
 
-            slider.addEventListener('input', function(e) {
-                const value = parseInt(this.value);
-                const channel = this.dataset.channel;
-                console.log(`Slider input for channel ${channel}: ${value}%`);
-                updateSlider(value, channel);
-            });
+			slider.addEventListener('input', function(e) {
+				const value = parseInt(this.value);
+				const channel = this.dataset.channel;
+				console.log(`Slider input for channel ${channel}: ${value}%`);
+				updateSlider(value, channel);
+			});
 
-            slider.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-                const channel = this.dataset.channel;
-                console.log(`Slider touchstart for channel ${channel}`);
-                stopPcaStateInterval();
-                this.classList.add('active');
-            });
+			slider.addEventListener('touchstart', function(e) {
+				e.preventDefault();
+				const channel = this.dataset.channel;
+				console.log(`Slider touchstart for channel ${channel}`);
+				stopPcaStateInterval();
+				this.classList.add('active');
+			});
 
-            slider.addEventListener('touchmove', function(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const rect = this.getBoundingClientRect();
-                const totalHeight = rect.height;
-                const touchY = touch.clientY - rect.top;
-                let value = Math.round(((totalHeight - touchY) / totalHeight) * 100);
-                value = Math.max(0, Math.min(100, value));
-                const channel = this.dataset.channel;
-                console.log(`Slider touchmove for channel ${channel}: ${value}%`);
-                updateSlider(value, channel);
-                this.dispatchEvent(new Event('input'));
-            });
+			slider.addEventListener('touchmove', function(e) {
+				e.preventDefault();
+				const touch = e.touches[0];
+				const rect = this.getBoundingClientRect();
+				const totalHeight = rect.height;
+				const touchY = touch.clientY - rect.top;
+				let value = Math.round(((totalHeight - touchY) / totalHeight) * 100);
+				value = Math.max(0, Math.min(100, value));
+				const channel = this.dataset.channel;
+				console.log(`Slider touchmove for channel ${channel}: ${value}%`);
+				updateSlider(value, channel);
+				this.dispatchEvent(new Event('input'));
+			});
 
-            slider.addEventListener('touchend', function(e) {
-                e.preventDefault();
-                const channel = this.dataset.channel;
-                console.log(`Slider touchend for channel ${channel}`);
-                this.classList.remove('active');
-                setTimeout(() => {
-                    startPcaStateInterval();
-                    fetchPcaStates();
-                }, 800);
-            });
-        });
+			slider.addEventListener('touchend', function(e) {
+				e.preventDefault();
+				const channel = this.dataset.channel;
+				console.log(`Slider touchend for channel ${channel}`);
+				this.classList.remove('active');
+				setTimeout(() => {
+					startPcaStateInterval();
+					fetchPcaStates();
+				}, 800);
+			});
+		});
 
         const lightingSlider = document.querySelector('.lighting-slider');
         let isDragging = false;
@@ -593,55 +828,72 @@
             });
         });
 
-        function toggleDarkMode(slider) {
-            const isOn = $(slider).hasClass('on');
-            const state = isOn ? 'off' : 'on';
-            console.log(`Toggling dark mode to ${state}`);
-            if (state === 'on') {
-                $(slider).addClass('on');
-                $('body').addClass('dark-mode');
-            } else {
-                $(slider).removeClass('on');
-                $('body').removeClass('dark-mode');
-            }
-            saveConfig();
-        }
+		function updateThemeBasedOnTime(sunrise, sunset) {
+			if (!$('#auto-theme-toggle').prop('checked')) {
+				console.log('Auto-theme disabled, skipping time-based theme update');
+				return;
+			}
 
-        function toggleAutoTheme(slider) {
-            const isOn = $(slider).hasClass('on');
-            $('#auto-theme-toggle').toggleClass('on', isOn);
-            const autoTheme = !isOn;
-            $('#default-theme').prop('disabled', autoTheme);
-            $('#default-theme').css('opacity', autoTheme ? 0.5 : 1);
-            if (autoTheme) {
-                updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
-            } else {
-                applyDefaultTheme($('#default-theme').val());
-            }
-            saveConfig();
-        }
+			// Clean sunrise and sunset strings
+			sunrise = sunrise.replace('*', '').trim();
+			sunset = sunset.replace('*', '').trim();
 
-        function updateThemeBasedOnTime(sunrise, sunset) {
-            const now = new Date($('#current_datetime').text() || 'Tue Jun 10 2025 19:51:00 GMT+1000');
-            const sunriseTime = new Date(`Tue Jun 10 2025 ${sunrise} GMT+1000`);
-            const sunsetTime = new Date(`Tue Jun 10 2025 ${sunset} GMT+1000`);
-            if (now > sunriseTime && now < sunsetTime) {
-                $('body').removeClass('dark-mode');
-                $('#dark-mode-toggle').removeClass('on');
-            } else {
-                $('body').addClass('dark-mode');
-                $('#dark-mode-toggle').addClass('on');
-            }
-            saveConfig();
-        }
+			// Get current time
+			let currentTimeStr = $('#current_datetime').text().replace('*', '').trim();
+			let now;
+			try {
+				now = new Date(currentTimeStr);
+				if (isNaN(now.getTime())) {
+					console.warn('Invalid current time, using system time');
+					now = new Date();
+				}
+			} catch (e) {
+				console.warn('Error parsing current time, using system time:', e);
+				now = new Date();
+			}
+
+			// Use current date for sunrise/sunset
+			const today = now.toDateString();
+
+			// Parse sunrise and sunset times
+			let sunriseTime, sunsetTime;
+			try {
+				sunriseTime = new Date(`${today} ${sunrise}`);
+				sunsetTime = new Date(`${today} ${sunset}`);
+				if (sunsetTime < sunriseTime) {
+					sunsetTime.setDate(sunsetTime.getDate() - 1);
+				}
+			} catch (e) {
+				console.error('Error parsing sunrise/sunset:', e, 'Sunrise:', sunrise, 'Sunset:', sunset);
+				return;
+			}
+
+			console.log('Now:', now, 'Sunrise:', sunriseTime, 'Sunset:', sunsetTime);
+
+			// Apply theme based on time
+			if (now >= sunriseTime && now < sunsetTime) {
+				$('body').removeClass('dark-mode');
+				$('#dark-mode-toggle').prop('checked', false);
+				$('#dark-mode-toggle').parent().removeClass('on');
+			} else {
+				$('body').addClass('dark-mode');
+				$('#dark-mode-toggle').prop('checked', true);
+				$('#dark-mode-toggle').parent().addClass('on');
+			}
+
+			// Save the updated config
+			saveConfig();
+		}
 
         function applyDefaultTheme(theme) {
             if (theme === 'dark') {
                 $('body').addClass('dark-mode');
-                $('#dark-mode-toggle').addClass('on');
+                $('#dark-mode-toggle').prop('checked', true);
+                $('#dark-mode-toggle').parent().addClass('on');
             } else {
                 $('body').removeClass('dark-mode');
-                $('#dark-mode-toggle').removeClass('on');
+                $('#dark-mode-toggle').prop('checked', false);
+                $('#dark-mode-toggle').parent().removeClass('on');
             }
             saveConfig();
         }
@@ -649,8 +901,8 @@
         function saveConfig() {
             const config = {
                 theme: {
-                    darkMode: $('#dark-mode-toggle').hasClass('on') ? 'on' : 'off',
-                    autoTheme: $('#auto-theme-toggle').hasClass('on') ? 'on' : 'off',
+                    darkMode: $('#dark-mode-toggle').prop('checked') ? 'on' : 'off',
+                    autoTheme: $('#auto-theme-toggle').prop('checked') ? 'on' : 'off',
                     defaultTheme: $('#default-theme').val()
                 },
                 screenBrightness: $('#screen-brightness').val()
@@ -674,16 +926,23 @@
                 console.log('Config loaded:', data);
                 if (data.theme) {
                     if (data.theme.darkMode === 'on') {
-                        $('#dark-mode-toggle').addClass('on');
+                        $('#dark-mode-toggle').prop('checked', true);
+                        $('#dark-mode-toggle').parent().addClass('on');
                         $('body').addClass('dark-mode');
+                    } else {
+                        $('#dark-mode-toggle').prop('checked', false);
+                        $('#dark-mode-toggle').parent().removeClass('on');
+                        $('body').removeClass('dark-mode');
                     }
                     if (data.theme.autoTheme === 'on') {
-                        $('#auto-theme-toggle').addClass('on');
+                        $('#auto-theme-toggle').prop('checked', true);
+                        $('#auto-theme-toggle').parent().addClass('on');
                         $('#default-theme').prop('disabled', true);
                         $('#default-theme').css('opacity', 0.5);
                         updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
                     } else {
-                        $('#auto-theme-toggle').removeClass('on');
+                        $('#auto-theme-toggle').prop('checked', false);
+                        $('#auto-theme-toggle').parent().removeClass('on');
                         $('#default-theme').prop('disabled', false);
                         $('#default-theme').css('opacity', 1);
                         $('#default-theme').val(data.theme.defaultTheme || 'light');
@@ -698,19 +957,54 @@
                 }
             }).fail(function(jqXHR, textStatus, errorThrown) {
                 console.error('Error loading config:', textStatus, errorThrown);
+                // Fallback to default settings
+                $('#dark-mode-toggle').prop('checked', false);
+                $('#dark-mode-toggle').parent().removeClass('on');
+                $('#auto-theme-toggle').prop('checked', false);
+                $('#auto-theme-toggle').parent().removeClass('on');
+                $('#default-theme').val('light');
+                applyDefaultTheme('light');
+                $('#screen-brightness').val(50);
+                $('#screen-brightness-value').text('50%');
+                $('body').css('filter', 'brightness(50%)');
             });
         }
 
-		function openSettings() {
-			$('#settingsModal').fadeIn();
-			$('.close-settings').addClass('visible'); // Add visible class
-			openTab('general');
-		}
+        function openSettings() {
+            $('#settingsModal').fadeIn();
+            openTab('general');
+            positionCloseButton();
+            $(window).off('resize.closeButton').on('resize.closeButton', positionCloseButton);
+        }
 
-		function closeSettings() {
-			$('#settingsModal').fadeOut();
-			$('.close-settings').removeClass('visible'); // Remove visible class
-		}
+        function positionCloseButton() {
+            const $settingsContent = $('.settings-content');
+            const $closeButton = $('.close-settings');
+            const contentRect = $settingsContent[0].getBoundingClientRect();
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            const buttonWidth = $closeButton.outerWidth();
+
+            const targetRight = contentRect.right + 1.5 * rem;
+            const leftPosition = targetRight - buttonWidth;
+
+            $closeButton.css({
+                position: 'fixed',
+                top: (contentRect.top - 1.5 * rem) + 'px',
+                left: leftPosition + 'px'
+            });
+
+            console.log('contentRect:', contentRect);
+            console.log('buttonWidth:', buttonWidth);
+            console.log('targetRight:', targetRight);
+            console.log('calculated left:', leftPosition);
+            console.log('viewport width:', window.innerWidth);
+        }
+
+        function closeSettings(event) {
+            event.stopPropagation();
+            $('#settingsModal').fadeOut();
+            $(window).off('resize.closeButton');
+        }
 
         function openTab(tabName) {
             $('.tab-content').removeClass('active');
@@ -719,45 +1013,55 @@
             $('[onclick="openTab(\'' + tabName + '\')"]').addClass('active');
         }
 
-        $(document).ready(function() {
-            console.log('Page loaded, starting state fetches');
-            fetchData();
-            fetchPcaStates();
-            fetchRelayStates();
-            setInterval(fetchData, 5000);
-            startPcaStateInterval();
-            setInterval(fetchRelayStates, 1000);
+        function rampFaders() {
+            const rampDuration = 2000;
+            const stepInterval = 100;
+            const steps = Math.ceil(rampDuration / stepInterval);
+            let currentStep = 0;
 
-            loadConfig();
+            console.log('Starting fader ramp polling');
+            const interval = setInterval(() => {
+                $.get('/get_pca_states', function(data) {
+                    try {
+                        const states = typeof data === 'string' ? JSON.parse(data) : data;
+                        console.log(`Fader ramp step ${currentStep + 1}:`, states);
+                        Object.keys(states).forEach(channel => {
+                            if (['3', '9'].includes(channel)) {
+                                console.log(`Skipping channel ${channel}`);
+                                return;
+                            }
+                            const brightness = parseInt(states[channel]) || 0;
+                            const valueElement = $(`#pca-value-${channel}`);
+                            const sliderElement = $(`#pca-${channel}`);
+                            const toggleSlider = $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`);
+                            if (!valueElement.length || !sliderElement.length || !toggleSlider.length) {
+                                console.warn(`Missing elements for channel ${channel}`);
+                                return;
+                            }
+                            valueElement.text(brightness + '%');
+                            sliderElement.val(brightness);
+                            sliderElement[0].style.setProperty('--value', brightness + '%');
+                            if (brightness > 0) {
+                                toggleSlider.addClass('on');
+                            } else {
+                                toggleSlider.removeClass('on');
+                            }
+                        });
+                    } catch (e) {
+                        console.error('Error parsing /get_pca_states during ramp:', e);
+                    }
+                }).fail(function(jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching /get_pca_states during ramp:', textStatus, errorThrown);
+                });
 
-            $('#dark-mode-toggle').on('click', function() {
-                toggleDarkMode(this);
-            });
-
-            $('#auto-theme-toggle').on('click', function() {
-                toggleAutoTheme(this);
-            });
-
-            $('#default-theme').on('change', function() {
-                applyDefaultTheme($(this).val());
-            });
-
-            $('#screen-brightness').on('input', function() {
-                const value = $(this).val();
-                $('#screen-brightness-value').text(value + '%');
-                $('body').css('filter', `brightness(${value}%)`);
-                saveConfig();
-            });
-
-            // Click outside to close settings modal
-            $('#settingsModal').on('click', function(e) {
-                if ($(e.target).hasClass('settings-modal')) {
-                    closeSettings();
+                currentStep++;
+                if (currentStep >= steps) {
+                    clearInterval(interval);
+                    console.log('Finished fader ramp polling');
+                    setTimeout(fetchPcaStates, 100);
                 }
-            });
-
-            updateActiveDot();
-        });
+            }, stepInterval);
+        }
     </script>
 </body>
 </html>
