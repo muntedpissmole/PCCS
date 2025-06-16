@@ -661,6 +661,23 @@ def load_config():
             },
             "screenBrightness": 50
         }), 500
+        
+@app.route('/get_scenes', methods=['GET'])
+def get_scenes():
+    try:
+        with config_lock:
+            config_path = 'config.json'
+            if not os.access(config_path, os.R_OK):
+                logging.error(f"No read permissions for {config_path}")
+                return jsonify({}), 500
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+            scenes = config_data.get('scenes', {})
+            logging.debug(f"Returning scenes: {scenes}")
+            return jsonify(scenes)
+    except Exception as e:
+        logging.error(f"Error in get_scenes: {e}")
+        return jsonify({}), 500
 
 if __name__ == '__main__':
     try:

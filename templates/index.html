@@ -174,6 +174,7 @@ $(document).ready(function() {
     console.log('Diagnostic: Page loaded, starting initialization');
     try {
         loadConfig();
+		loadScenes();
         fetchData();
         fetchPcaStates();
         fetchRelayStates();
@@ -517,6 +518,7 @@ function fetchPcaStates() {
                     toggleSlider.removeClass('on');
                 }
             });
+            checkActiveScene(); // Add this line
         } catch (e) {
             console.error('Diagnostic: Error parsing /get_pca_states:', e);
         }
@@ -538,6 +540,7 @@ function fetchRelayStates() {
                 toggleSlider.removeClass('on');
             }
         });
+        checkActiveScene(); // Add this line
     }).fail(function(jqXHR, textStatus, errorThrown) {
         console.error('Diagnostic: Error fetching /get_relay_states:', textStatus, errorThrown);
     });
@@ -558,6 +561,7 @@ function setBrightness(type, channel, value) {
             setTimeout(() => {
                 fetchPcaStates();
                 startPcaStateInterval();
+                checkActiveScene(); // Add this line
             }, 800);
         },
         error: function(jqXHR, textStatus, errorThrown) {
@@ -594,6 +598,7 @@ function toggleLight(type, channel, slider) {
             console.log(`Diagnostic: Toggle success for channel ${channel}:`, response);
             setTimeout(() => {
                 fetchPcaStates();
+                checkActiveScene(); // Add this line
             }, 800);
         },
         error: function(jqXHR, textStatus, errorThrown) {
@@ -623,6 +628,7 @@ function toggleRelay(type, channel, slider) {
         success: function(response) {
             console.log(`Diagnostic: Toggle success for relay ${channel}:`, response);
             fetchRelayStates();
+            checkActiveScene(); // Add this line
         },
         error: function(jqXHR, textStatus, errorThrown) {
             console.error(`Diagnostic: Error in toggleRelay for channel ${channel}:`, textStatus, errorThrown);
@@ -632,6 +638,9 @@ function toggleRelay(type, channel, slider) {
 
 function activateScene(scene) {
     console.log(`Diagnostic: Activating scene ${scene}`);
+    $('.scene-btn').removeClass('active'); // Clear active state immediately
+    currentActiveScene = null;
+    checkActiveScene(); // Immediate check
     rampFaders();
     $.ajax({
         url: '/activate_scene',
@@ -640,13 +649,18 @@ function activateScene(scene) {
         data: JSON.stringify({ scene: scene }),
         success: function(response) {
             console.log(`Diagnostic: Scene ${scene} activated:`, response);
-            setTimeout(fetchRelayStates, 2100);
+            setTimeout(() => {
+                fetchRelayStates();
+                fetchPcaStates();
+                checkActiveScene();
+            }, 2100);
         },
         error: function(jqXHR, textStatus, errorThrown) {
             console.error(`Diagnostic: Error in activate_scene for ${scene}:`, textStatus, errorThrown);
             setTimeout(() => {
                 fetchPcaStates();
                 fetchRelayStates();
+                checkActiveScene();
             }, 100);
         }
     });
@@ -820,6 +834,189 @@ function loadConfig() {
     });
 }
 
+let sceneConfigs = {};
+let currentActiveScene = null;
+
+function loadScenes(retryCount = 3, delay = 1000) {
+    console.log('Diagnostic: Loading scenes from /get_scenes');
+    $.get('/get_scenes', function(data) {
+        try {
+            sceneConfigs = typeof data === 'string' ? JSON.parse(data) : data;
+            console.log('Diagnostic: Scenes loaded:', sceneConfigs);
+            checkActiveScene(); // Initial check after loading scenes
+        } catch (e) {
+            console.error('Diagnostic: Error parsing /get_scenes:', e);
+        }
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Diagnostic: Error loading scenes:', textStatus, errorThrown);
+        if (retryCount > 0) {
+            console.log(`Diagnostic: Retrying loadScenes (${retryCount} attempts left)`);
+            setTimeout(() => loadScenes(retryCount - 1, delay * 2), delay);
+        } else {
+            console.warn('Diagnostic: Failed to load scenes after retries');
+        }
+    });
+}
+
+const debouncedCheckActiveScene = debounce(function() {
+    if (!Object.keys(sceneConfigs).length) {
+        console.log('Diagnostic: Scene configs not loaded, skipping active scene check');
+        return;
+    }
+
+    $.when(
+        $.get('/get_pca_states'),
+        $.get('/get_relay_states')
+    ).done(function(pcaResponse, relayResponse) {
+        try {
+            const pcaStates = typeof pcaResponse[0] === 'string' ? JSON.parse(pcaResponse[0]) : pcaResponse[0];
+            const relayStates = typeof relayResponse[0] === 'string' ? JSON.parse(relayResponse[0]) : relayResponse[0];
+            console.log('Diagnostic: Checking active scene - PCA states:', pcaStates, 'Relay states:', relayStates);
+
+            // Check if current active scene is still valid
+            let isCurrentSceneValid = false;
+            if (currentActiveScene && sceneConfigs[currentActiveScene]) {
+                const sceneConfig = sceneConfigs[currentActiveScene];
+                isCurrentSceneValid = true;
+
+                // Check PCA9685 channels
+                if (sceneConfig.pca9685) {
+                    Object.keys(sceneConfig.pca9685).forEach(channel => {
+                        if (['3', '9'].includes(channel)) return; // Skip excluded channels
+                        const sceneValue = sceneConfig.pca9685[channel];
+                        const currentValue = parseInt(pcaStates[channel]) || 0;
+                        if (Math.abs(sceneValue - currentValue) > 2) {
+                            isCurrentSceneValid = false;
+                        }
+                    });
+                }
+
+                // Check relays
+                if (sceneConfig.relays) {
+                    Object.keys(sceneConfig.relays).forEach(channel => {
+                        const sceneValue = sceneConfig.relays[channel];
+                        const currentValue = relayStates[channel] ? 1 : 0;
+                        if (sceneValue !== currentValue) {
+                            isCurrentSceneValid = false;
+                        }
+                    });
+                }
+
+                // Ensure unspecified channels are off
+                if (isCurrentSceneValid) {
+                    Object.keys(pcaStates).forEach(channel => {
+                        if (['3', '9'].includes(channel)) return;
+                        if (!sceneConfig.pca9685 || !(channel in sceneConfig.pca9685)) {
+                            const currentValue = parseInt(pcaStates[channel]) || 0;
+                            if (currentValue > 2) {
+                                isCurrentSceneValid = false;
+                            }
+                        }
+                    });
+                    Object.keys(relayStates).forEach(channel => {
+                        if (!sceneConfig.relays || !(channel in sceneConfig.relays)) {
+                            const currentValue = relayStates[channel] ? 1 : 0;
+                            if (currentValue !== 0) {
+                                isCurrentSceneValid = false;
+                            }
+                        }
+                    });
+                }
+            }
+
+            // If current scene is invalid, deactivate it
+            if (!isCurrentSceneValid && currentActiveScene) {
+                console.log(`Diagnostic: Current scene ${currentActiveScene} no longer valid, deactivating`);
+                $('.scene-btn').removeClass('active');
+                currentActiveScene = null;
+            }
+
+            // If no active scene, check for a new match
+            if (!currentActiveScene) {
+                let newActiveScene = null;
+                Object.keys(sceneConfigs).forEach(scene => {
+                    if (scene === currentActiveScene) return; // Skip already checked scene
+                    const sceneConfig = sceneConfigs[scene];
+                    let isMatch = true;
+
+                    // Check PCA9685 channels
+                    if (sceneConfig.pca9685) {
+                        Object.keys(sceneConfig.pca9685).forEach(channel => {
+                            if (['3', '9'].includes(channel)) return;
+                            const sceneValue = sceneConfig.pca9685[channel];
+                            const currentValue = parseInt(pcaStates[channel]) || 0;
+                            if (Math.abs(sceneValue - currentValue) > 2) {
+                                isMatch = false;
+                            }
+                        });
+                    }
+
+                    // Check relays
+                    if (sceneConfig.relays) {
+                        Object.keys(sceneConfig.relays).forEach(channel => {
+                            const sceneValue = sceneConfig.relays[channel];
+                            const currentValue = relayStates[channel] ? 1 : 0;
+                            if (sceneValue !== currentValue) {
+                                isMatch = false;
+                            }
+                        });
+                    }
+
+                    // Ensure unspecified channels are off
+                    if (isMatch) {
+                        Object.keys(pcaStates).forEach(channel => {
+                            if (['3', '9'].includes(channel)) return;
+                            if (!sceneConfig.pca9685 || !(channel in sceneConfig.pca9685)) {
+                                const currentValue = parseInt(pcaStates[channel]) || 0;
+                                if (currentValue > 2) {
+                                    isMatch = false;
+                                }
+                            }
+                        });
+                        Object.keys(relayStates).forEach(channel => {
+                            if (!sceneConfig.relays || !(channel in sceneConfig.relays)) {
+                                const currentValue = relayStates[channel] ? 1 : 0;
+                                if (currentValue !== 0) {
+                                    isMatch = false;
+                                }
+                            }
+                        });
+                    }
+
+                    if (isMatch) {
+                        newActiveScene = scene;
+                    }
+                });
+
+                console.log('Diagnostic: New active scene detected:', newActiveScene);
+                $('.scene-btn').removeClass('active');
+                if (newActiveScene) {
+                    const sceneTitle = newActiveScene.replace('_', ' ').toLowerCase();
+                    $('.scene-btn').each(function() {
+                        const buttonText = $(this).text().trim().toLowerCase().replace(' ', '');
+                        if (buttonText.includes(sceneTitle)) {
+                            $(this).addClass('active');
+                        }
+                    });
+                    currentActiveScene = newActiveScene;
+                }
+            }
+        } catch (e) {
+            console.error('Diagnostic: Error in checkActiveScene:', e);
+            $('.scene-btn').removeClass('active');
+            currentActiveScene = null;
+        }
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Diagnostic: Error fetching states for checkActiveScene:', textStatus, errorThrown);
+        $('.scene-btn').removeClass('active');
+        currentActiveScene = null;
+    });
+}, 500);
+
+function checkActiveScene() {
+    debouncedCheckActiveScene();
+}
+
 function applyDefaultSettings() {
     console.warn('Diagnostic: Applying default settings due to config load failure');
     $('#dark-mode-toggle').prop('checked', false).parent().removeClass('on');
@@ -952,6 +1149,9 @@ function rampFaders() {
     let currentStep = 0;
 
     console.log('Diagnostic: Starting fader ramp polling');
+    $('.scene-btn').removeClass('active'); // Clear active state immediately
+    currentActiveScene = null;
+    checkActiveScene(); // Immediate check
     const interval = setInterval(() => {
         $.get('/get_pca_states', function(data) {
             try {
@@ -979,6 +1179,7 @@ function rampFaders() {
                         toggleSlider.removeClass('on');
                     }
                 });
+                checkActiveScene(); // Check during ramping
             } catch (e) {
                 console.error('Diagnostic: Error parsing /get_pca_states during ramp:', e);
             }
@@ -990,7 +1191,10 @@ function rampFaders() {
         if (currentStep >= steps) {
             clearInterval(interval);
             console.log('Diagnostic: Finished fader ramp polling');
-            setTimeout(fetchPcaStates, 100);
+            setTimeout(() => {
+                fetchPcaStates();
+                checkActiveScene();
+            }, 100);
         }
     }, stepInterval);
 }

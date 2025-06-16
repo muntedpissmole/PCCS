@@ -46,7 +46,7 @@ Or install as a service to start with the RPI.
 
 ### Front End:
 - Waveshare 10.1" 1280 x 800 Touchscreen
-- RPI for powering the touchscren web ui, or a mini PC like an Intel NUC if you want a silky smooth webpage. I foudn that connecting the backend RPI to the touchscreen made the webui too jolty.
+- RPI for powering the touchscren web ui, or a mini PC like an Intel NUC if you want a silky smooth webpage. I found that connecting the backend RPI to the touchscreen made the webui too jolty.
 
 ### Connections
 See config.json for lighting, relay and reed switch connections.

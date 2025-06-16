@@ -119,6 +119,24 @@ body.dark-mode::before {
     touch-action: manipulation;
 }
 
+.scene-btn.active {
+    background: #00b7eb;
+    border-color: #00b7eb;
+    color: #e0e0e0;
+    box-shadow: 8px 8px 12px rgba(100, 100, 100, 0.4), -4px -4px 8px rgba(220, 220, 220, 0.8);
+}
+
+.scene-btn.active i {
+    color: #e0e0e0; /* White icon color for active state */
+}
+
+body.dark-mode .scene-btn.active {
+    background: #00b7eb;
+    border-color: #00b7eb;
+    color: #e0e0e0;
+    box-shadow: 8px 8px 12px #1a1a1a, -4px -4px 8px rgba(63, 63, 63, 0.6);
+}
+
 .scene-btn i {
     color: var(--primary-color);
 }
