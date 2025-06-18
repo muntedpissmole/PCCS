@@ -187,6 +187,10 @@
     </div>
 
 <script>
+function springEase(t) {
+    // Spring-like easing: combines exponential decay and oscillation
+    return 1 - Math.cos(t * 4 * Math.PI) * Math.exp(-6 * t);
+}
 $(document).ready(function() {
     console.log('Diagnostic: Page loaded, starting initialization');
     try {
@@ -198,170 +202,318 @@ $(document).ready(function() {
         setInterval(fetchData, 5000);
         startPcaStateInterval();
 
-        // Lighting slider pagination
-        const lightingSlider = document.querySelector('.lighting-slider');
-        const dots = document.querySelectorAll('.pagination-dots .dot');
+// Lighting slider pagination
+const lightingSlider = document.querySelector('.lighting-slider');
+const dots = document.querySelectorAll('.pagination-dots .dot');
 
-        // Initialize slider to first page
-        if (lightingSlider) {
-            lightingSlider.scrollLeft = 0;
-            console.log('Diagnostic: Initialized lightingSlider to scrollLeft=0');
-        } else {
-            console.error('Diagnostic: lightingSlider not found');
+// Initialize slider to first page
+if (lightingSlider) {
+    lightingSlider.scrollLeft = 0;
+    console.log('Diagnostic: Initialized lightingSlider to scrollLeft=0');
+} else {
+    console.error('Diagnostic: lightingSlider not found');
+    return;
+}
+
+// Update active dot
+function updateActiveDot() {
+    if (!lightingSlider || !dots.length) {
+        console.error('Diagnostic: lightingSlider or dots missing');
+        return;
+    }
+    const scrollPos = lightingSlider.scrollLeft;
+    const pageWidth = lightingSlider.clientWidth || 1;
+    const currentPage = Math.round(scrollPos / pageWidth);
+    console.log(`Diagnostic: updateActiveDot - scrollPos=${scrollPos}, pageWidth=${pageWidth}, currentPage=${currentPage}`);
+    dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index === currentPage);
+    });
+}
+
+setTimeout(() => updateActiveDot(), 100);
+
+// Dot click handler
+dots.forEach(dot => {
+    dot.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const page = parseInt(dot.dataset.page);
+        if (isNaN(page)) {
+            console.error(`Diagnostic: Invalid data-page for dot: ${dot.dataset.page}`);
             return;
         }
+        console.log(`Diagnostic: Dot clicked, navigating to page ${page}`);
+        const pageWidth = lightingSlider.clientWidth;
+        lightingSlider.scrollTo({
+            left: page * pageWidth,
+            behavior: 'smooth'
+        });
+        setTimeout(updateActiveDot, 300);
+    });
+});
 
-        // Update active dot
-        function updateActiveDot() {
-            if (!lightingSlider || !dots.length) {
-                console.error('Diagnostic: lightingSlider or dots missing');
-                return;
+// Swipe and drag handling
+let isDragging = false;
+let startX = 0;
+let scrollLeft = 0;
+let velocity = 0;
+let lastX = 0;
+let lastTime = 0;
+let animationFrame = null;
+let overscrollDistance = 0;
+
+// Snap to page
+function snapToPage(targetPage, instant = false) {
+    const pageWidth = lightingSlider.clientWidth || 1;
+    const maxPage = dots.length - 1;
+    targetPage = Math.max(0, Math.min(targetPage, maxPage));
+    const targetScroll = targetPage * pageWidth;
+
+    console.log(`Diagnostic: snapToPage called, targetPage=${targetPage}, targetScroll=${targetScroll}, overscroll=${lightingSlider.classList.contains('overscroll-start') || lightingSlider.classList.contains('overscroll-end')}`);
+
+    if (lightingSlider.classList.contains('overscroll-start') || lightingSlider.classList.contains('overscroll-end')) {
+        // Animate back from overscroll
+        const startScroll = lightingSlider.scrollLeft;
+        const startTransform = overscrollDistance;
+        const duration = 600;
+        let startTime = null;
+
+        function animate(currentTime) {
+            if (!startTime) startTime = currentTime;
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easedProgress = springEase(progress);
+
+            // Interpolate scroll position
+            lightingSlider.scrollLeft = startScroll + (targetScroll - startScroll) * easedProgress;
+
+            // Interpolate overscroll distance
+            const currentTransform = startTransform * (1 - easedProgress);
+            lightingSlider.style.setProperty('--overscroll-distance', `${currentTransform}px`);
+
+            console.log(`Diagnostic: Overscroll animation, progress=${progress.toFixed(2)}, scrollLeft=${lightingSlider.scrollLeft}, --overscroll-distance=${currentTransform}px`);
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                // Finalize position
+                lightingSlider.scrollLeft = targetScroll;
+                lightingSlider.style.setProperty('--overscroll-distance', '0px');
+                lightingSlider.classList.remove('overscroll-start', 'overscroll-end');
+                overscrollDistance = 0;
+                updateActiveDot();
+                lightingSlider.classList.remove('dragging');
+                console.log(`Diagnostic: Overscroll animation complete, scrollLeft=${lightingSlider.scrollLeft}`);
             }
-            const scrollPos = lightingSlider.scrollLeft;
-            const pageWidth = lightingSlider.clientWidth || 1;
-            const currentPage = Math.round(scrollPos / pageWidth);
-            console.log(`Diagnostic: updateActiveDot - scrollPos=${scrollPos}, pageWidth=${pageWidth}, currentPage=${currentPage}`);
-            dots.forEach((dot, index) => {
-                dot.classList.toggle('active', index === currentPage);
-            });
         }
 
-        setTimeout(() => updateActiveDot(), 100);
-
-        // Dot click handler
-        dots.forEach(dot => {
-            dot.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const page = parseInt(dot.dataset.page);
-                if (isNaN(page)) {
-                    console.error(`Diagnostic: Invalid data-page for dot: ${dot.dataset.page}`);
-                    return;
-                }
-                console.log(`Diagnostic: Dot clicked, navigating to page ${page}`);
-                const pageWidth = lightingSlider.clientWidth;
-                lightingSlider.scrollTo({
-                    left: page * pageWidth,
-                    behavior: 'smooth'
-                });
-                setTimeout(updateActiveDot, 300);
-            });
+        lightingSlider.classList.add('dragging');
+        requestAnimationFrame(animate);
+    } else {
+        // Normal snap
+        console.log(`Diagnostic: Snapping to page ${targetPage}, pageWidth=${pageWidth}, targetScroll=${targetScroll}, instant=${instant}`);
+        lightingSlider.scrollTo({
+            left: targetScroll,
+            behavior: instant ? 'auto' : 'smooth'
         });
+        lightingSlider.classList.remove('overscroll-start', 'overscroll-end');
+        lightingSlider.style.setProperty('--overscroll-distance', '0px');
+        overscrollDistance = 0;
+        setTimeout(updateActiveDot, instant ? 50 : 300);
+    }
+}
 
-        const debouncedUpdateActiveDot = debounce(updateActiveDot, 100);
-        lightingSlider.addEventListener('scroll', debouncedUpdateActiveDot);
+// Calculate velocity for momentum
+function calculateVelocity(currentX, currentTime) {
+    const deltaX = currentX - lastX;
+    const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+    if (deltaTime > 0) {
+        velocity = deltaX / deltaTime;
+    }
+    lastX = currentX;
+    lastTime = currentTime;
+}
 
-        // Swipe handling
-        let isDragging = false;
-        let startX = 0;
-        let scrollLeft = 0;
+// Momentum scrolling
+function applyMomentum() {
+    if (Math.abs(velocity) < 10) {
+        velocity = 0;
+        const pageWidth = lightingSlider.clientWidth || 1;
+        snapToPage(Math.round(lightingSlider.scrollLeft / pageWidth));
+        return;
+    }
+    lightingSlider.scrollLeft -= velocity * 0.016; // Frame time approximation (60fps)
+    velocity *= 0.95; // Deceleration
+    animationFrame = requestAnimationFrame(applyMomentum);
+}
 
-        // Snap to page
-        function snapToPage(targetPage, instant = false) {
-            const pageWidth = lightingSlider.clientWidth || 1;
-            const maxPage = dots.length - 1;
-            targetPage = Math.max(0, Math.min(targetPage, maxPage));
-            const targetScroll = targetPage * pageWidth;
-            console.log(`Diagnostic: Snapping to page ${targetPage}, pageWidth=${pageWidth}, targetScroll=${targetScroll}, instant=${instant}`);
-            lightingSlider.scrollTo({
-                left: targetScroll,
-                behavior: instant ? 'auto' : 'smooth'
-            });
-            setTimeout(updateActiveDot, 50);
+// Stop momentum
+function stopMomentum() {
+    if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+    }
+    velocity = 0;
+}
+
+// Handle overscroll effect
+function handleOverscroll(walk) {
+    const pageWidth = lightingSlider.clientWidth || 1;
+    const maxScroll = pageWidth * (dots.length - 1);
+    const currentScroll = scrollLeft - walk; // Corrected scroll direction
+
+    if (currentScroll < 0 && walk > 0) {
+        // Pulling right on first page
+        overscrollDistance = Math.min(walk * 0.3, pageWidth / 3);
+        lightingSlider.classList.add('overscroll-start');
+        lightingSlider.classList.remove('overscroll-end');
+        lightingSlider.style.setProperty('--overscroll-distance', `${overscrollDistance}px`);
+        lightingSlider.scrollLeft = 0;
+        console.log(`Diagnostic: Overscroll start, walk=${walk}, overscrollDistance=${overscrollDistance}, --overscroll-distance=${lightingSlider.style.getPropertyValue('--overscroll-distance')}`);
+        return true;
+    } else if (currentScroll > maxScroll && walk < 0) {
+        // Pulling left on last page
+        overscrollDistance = Math.min(Math.abs(walk) * 0.3, pageWidth / 3);
+        lightingSlider.classList.add('overscroll-end');
+        lightingSlider.classList.remove('overscroll-start');
+        lightingSlider.style.setProperty('--overscroll-distance', `${overscrollDistance}px`);
+        lightingSlider.scrollLeft = maxScroll;
+        console.log(`Diagnostic: Overscroll end, walk=${walk}, overscrollDistance=${overscrollDistance}, --overscroll-distance=${lightingSlider.style.getPropertyValue('--overscroll-distance')}`);
+        return true;
+    } else {
+        // Normal scrolling
+        lightingSlider.classList.remove('overscroll-start', 'overscroll-end');
+        lightingSlider.style.setProperty('--overscroll-distance', '0px');
+        overscrollDistance = 0;
+        console.log(`Diagnostic: Normal scroll, scrollLeft=${lightingSlider.scrollLeft}`);
+        return false;
+    }
+}
+
+// Touch events
+lightingSlider.addEventListener('touchstart', (e) => {
+    if ($('#settingsModal').is(':visible')) return; // Skip if modal is open
+    if (e.touches.length > 1) return;
+    isDragging = true;
+    stopMomentum();
+    startX = e.touches[0].pageX;
+    scrollLeft = lightingSlider.scrollLeft;
+    lastX = startX;
+    lastTime = performance.now();
+    lightingSlider.classList.add('dragging');
+    console.log(`Diagnostic: Touch start at X=${startX}, scrollLeft=${scrollLeft}`);
+}, { passive: false });
+
+lightingSlider.addEventListener('touchmove', (e) => {
+    if ($('#settingsModal').is(':visible') || !isDragging || e.touches.length > 1) return;
+    e.preventDefault();
+    const x = e.touches[0].pageX;
+    const walk = x - startX;
+    if (!handleOverscroll(walk)) {
+        lightingSlider.scrollLeft = scrollLeft - walk;
+    }
+    const currentTime = performance.now();
+    calculateVelocity(x, currentTime);
+    console.log(`Diagnostic: Touch move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}, velocity=${velocity}`);
+}, { passive: false });
+
+lightingSlider.addEventListener('touchend', (e) => {
+    if ($('#settingsModal').is(':visible') || !isDragging) return;
+    isDragging = false;
+    lightingSlider.classList.remove('dragging');
+    const x = e.changedTouches[0].pageX;
+    const distance = startX - x;
+    const pageWidth = lightingSlider.clientWidth || 1;
+    const currentPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+    let targetPage = currentPage;
+
+    if (!lightingSlider.classList.contains('overscroll-start') && !lightingSlider.classList.contains('overscroll-end')) {
+        if (Math.abs(distance) > pageWidth / 4 || Math.abs(velocity) > 500) {
+            targetPage += distance > 0 ? 1 : -1;
         }
+    }
 
-        // Mouse events
-        lightingSlider.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.pageX - lightingSlider.offsetLeft;
-            scrollLeft = lightingSlider.scrollLeft;
-            lightingSlider.style.cursor = 'grabbing';
-            console.log(`Diagnostic: Mouse down at X=${startX}, scrollLeft=${scrollLeft}`);
-        });
+    stopMomentum();
+    snapToPage(targetPage);
+    console.log(`Diagnostic: Touch end, distance=${distance}, velocity=${velocity}, targetPage=${targetPage}`);
+});
 
-        lightingSlider.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            const x = e.pageX - lightingSlider.offsetLeft;
-            const walk = (x - startX) * 3;
-            lightingSlider.scrollLeft = scrollLeft - walk;
-            console.log(`Diagnostic: Mouse move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
-        });
+// Mouse events
+lightingSlider.addEventListener('mousedown', (e) => {
+    if ($('#settingsModal').is(':visible')) return; // Skip if modal is open
+    e.preventDefault();
+    isDragging = true;
+    stopMomentum();
+    startX = e.pageX;
+    scrollLeft = lightingSlider.scrollLeft;
+    lastX = startX;
+    lastTime = performance.now();
+    lightingSlider.style.cursor = 'grabbing';
+    lightingSlider.classList.add('dragging');
+    console.log(`Diagnostic: Mouse down at X=${startX}, scrollLeft=${scrollLeft}`);
+});
 
-        lightingSlider.addEventListener('mouseup', (e) => {
-            if (isDragging) {
-                const x = e.pageX - lightingSlider.offsetLeft;
-                const distance = (startX - x) * 3;
-                const pageWidth = lightingSlider.clientWidth || 1;
-                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
-                if (Math.abs(distance) > 15) {
-                    targetPage += distance > 0 ? 1 : -1;
-                    snapToPage(targetPage, true);
-                } else {
-                    snapToPage(targetPage);
-                }
-            }
-            isDragging = false;
-            lightingSlider.style.cursor = 'grab';
-            console.log('Diagnostic: Mouse up');
-        });
+lightingSlider.addEventListener('mousemove', (e) => {
+    if ($('#settingsModal').is(':visible') || !isDragging) return;
+    e.preventDefault();
+    const x = e.pageX;
+    const walk = x - startX;
+    if (!handleOverscroll(walk)) {
+        lightingSlider.scrollLeft = scrollLeft - walk;
+    }
+    const currentTime = performance.now();
+    calculateVelocity(x, currentTime);
+    console.log(`Diagnostic: Mouse move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}, velocity=${velocity}`);
+});
 
-        lightingSlider.addEventListener('mouseleave', () => {
-            if (isDragging) {
-                const pageWidth = lightingSlider.clientWidth || 1;
-                snapToPage(Math.round(lightingSlider.scrollLeft / pageWidth));
-            }
-            isDragging = false;
-            lightingSlider.style.cursor = 'grab';
-            console.log('Diagnostic: Mouse leave');
-        });
+lightingSlider.addEventListener('mouseup', (e) => {
+    if ($('#settingsModal').is(':visible') || !isDragging) return;
+    isDragging = false;
+    lightingSlider.style.cursor = 'grab';
+    lightingSlider.classList.remove('dragging');
+    const x = e.pageX;
+    const distance = startX - x;
+    const pageWidth = lightingSlider.clientWidth || 1;
+    const currentPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+    let targetPage = currentPage;
 
-        // Touch events
-        lightingSlider.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 1) return;
-            isDragging = true;
-            startX = e.touches[0].pageX - lightingSlider.offsetLeft;
-            scrollLeft = lightingSlider.scrollLeft;
-            console.log(`Diagnostic: Touch start at X=${startX}, scrollLeft=${scrollLeft}`);
-        }, { passive: true });
+    if (!lightingSlider.classList.contains('overscroll-start') && !lightingSlider.classList.contains('overscroll-end')) {
+        if (Math.abs(distance) > pageWidth / 4 || Math.abs(velocity) > 500) {
+            targetPage += distance > 0 ? 1 : -1;
+        }
+    }
 
-        lightingSlider.addEventListener('touchmove', (e) => {
-            if (!isDragging || e.touches.length > 1) return;
-            const x = e.touches[0].pageX - lightingSlider.offsetLeft;
-            const walk = (x - startX) * 3;
-            lightingSlider.scrollLeft = scrollLeft - walk;
-            console.log(`Diagnostic: Touch move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
-        }, { passive: true });
+    stopMomentum();
+    snapToPage(targetPage);
+    console.log(`Diagnostic: Mouse up, distance=${distance}, velocity=${velocity}, targetPage=${targetPage}`);
+});
 
-        lightingSlider.addEventListener('touchend', (e) => {
-            if (isDragging) {
-                const x = e.changedTouches[0].pageX - lightingSlider.offsetLeft;
-                const distance = (startX - x) * 3;
-                const pageWidth = lightingSlider.clientWidth || 1;
-                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
-                if (Math.abs(distance) > 15) {
-                    targetPage += distance > 0 ? 1 : -1;
-                    snapToPage(targetPage, true);
-                } else {
-                    snapToPage(targetPage);
-                }
-            }
-            isDragging = false;
-            console.log('Diagnostic: Touch end');
-        }, { passive: true });
+lightingSlider.addEventListener('mouseleave', () => {
+    if ($('#settingsModal').is(':visible') || !isDragging) return;
+    isDragging = false;
+    lightingSlider.style.cursor = 'grab';
+    lightingSlider.classList.remove('dragging');
+    const pageWidth = lightingSlider.clientWidth || 1;
+    const currentPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+    stopMomentum();
+    snapToPage(currentPage);
+    console.log('Diagnostic: Mouse leave');
+});
 
-        // Prevent overscrolling
-        lightingSlider.addEventListener('scroll', () => {
-            const pageWidth = lightingSlider.clientWidth || 1;
-            const maxScroll = pageWidth * (dots.length - 1);
-            if (lightingSlider.scrollLeft < 0) {
-                lightingSlider.scrollLeft = 0;
-            } else if (lightingSlider.scrollLeft > maxScroll) {
-                lightingSlider.scrollLeft = maxScroll;
-            }
-            debouncedUpdateActiveDot();
-        }, { passive: true });
+// Prevent overscrolling
+lightingSlider.addEventListener('scroll', () => {
+    const pageWidth = lightingSlider.clientWidth || 1;
+    const maxScroll = pageWidth * (dots.length - 1);
+    if (lightingSlider.scrollLeft < 0) {
+        lightingSlider.scrollLeft = 0;
+    } else if (lightingSlider.scrollLeft > maxScroll) {
+        lightingSlider.scrollLeft = maxScroll;
+    }
+    const debouncedUpdateActiveDot = debounce(updateActiveDot, 100);
+    debouncedUpdateActiveDot();
+}, { passive: true });
 
-        // Slider event listeners for lighting controls
+        // Slider event listeners for lighting controls (unchanged)
         document.querySelectorAll('input[type="range"]:not(#screen-brightness)').forEach(slider => {
             const updateSlider = (value, channel) => {
                 $(`#pca-value-${channel}`).text(value + '%');
@@ -486,11 +638,61 @@ $(document).ready(function() {
             console.log('Diagnostic: Click inside settings-content, stopping propagation');
             event.stopPropagation();
         });
+        // Settings toggle event listeners
+        $('.settings-toggle input[type="checkbox"]').off('change').on('change', function(e) {
+            e.stopPropagation(); // Prevent propagation to avoid conflicts
+            const $checkbox = $(this);
+            const toggle = $checkbox.parent();
+            toggle.toggleClass('on', $checkbox.prop('checked'));
+            console.log('Diagnostic: Toggle changed:', $checkbox.attr('id'), 'Checked:', $checkbox.prop('checked'));
+
+            if ($checkbox.attr('id') === 'dark-mode-toggle') {
+                console.log('Diagnostic: Toggling dark mode:', $checkbox.prop('checked'));
+                $('body').toggleClass('dark-mode', $checkbox.prop('checked'));
+                debouncedSaveConfig();
+            }
+            if ($checkbox.attr('id') === 'auto-theme-toggle') {
+                console.log('Diagnostic: Toggling auto-theme:', $checkbox.prop('checked'));
+                if ($checkbox.prop('checked')) {
+                    $('#default-theme').prop('disabled', true).css('opacity', 0.5);
+                    if ($('#sunrise').text() === '---' || $('#sunset').text() === '---') {
+                        console.log('Diagnostic: Sunrise/sunset not available, fetching data');
+                        fetchData();
+                        setTimeout(() => {
+                            updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                        }, 1000);
+                    } else {
+                        updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
+                    }
+                } else {
+                    $('#default-theme').prop('disabled', false).css('opacity', 1);
+                    applyDefaultTheme($('#default-theme').val());
+                }
+                debouncedSaveConfig();
+            }
+        });
+
+        $('#default-theme').off('change').on('change', function() {
+            console.log('Diagnostic: Default theme changed:', $(this).val());
+            if (!$('#auto-theme-toggle').prop('checked')) {
+                applyDefaultTheme($(this).val());
+            }
+            debouncedSaveConfig();
+        });
+
+        $('.settings-toggle').off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const $checkbox = $(this).find('input[type="checkbox"]');
+            $checkbox.prop('checked', !$checkbox.prop('checked')).trigger('change');
+            console.log('Diagnostic: Settings toggle clicked:', $checkbox.attr('id'), 'New state:', $checkbox.prop('checked'));
+        });
     } catch (e) {
         console.error('Diagnostic: Error in document.ready:', e);
     }
 });
 
+// Rest of your original JavaScript functions (debounce, setScreenBrightness, fetchData, etc.)
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
@@ -968,7 +1170,7 @@ function loadScenes(retryCount = 3, delay = 1000) {
 
 const debouncedCheckActiveScene = debounce(function() {
     if (!Object.keys(sceneConfigs).length) {
-        console.log('Diagnostic: Scene configs not loaded, skipping active scene check');
+        console.log('Diagnostic: Scene pages not loaded, skipping active scene check');
         return;
     }
 
@@ -1133,56 +1335,6 @@ function openSettings() {
     openTab('general');
     positionCloseButton();
     $(window).off('resize.closeButton').on('resize.closeButton', positionCloseButton);
-
-    try {
-        if (!$('#dark-mode-toggle').length) console.error('Diagnostic: #dark-mode-toggle not found in modal');
-        if (!$('#auto-theme-toggle').length) console.error('Diagnostic: #auto-theme-toggle not found in modal');
-        if (!$('#default-theme').length) console.error('Diagnostic: #default-theme not found in modal');
-
-        $('#settingsModal').off('change', '.settings-toggle input[type="checkbox"]');
-        $('#settingsModal').off('change', '#default-theme');
-
-        $('#settingsModal').on('change', '.settings-toggle input[type="checkbox"]', function() {
-            const $checkbox = $(this);
-            const toggle = $checkbox.parent();
-            toggle.toggleClass('on', $checkbox.prop('checked'));
-            console.log('Diagnostic: Toggle changed:', $checkbox.attr('id'), 'Checked:', $checkbox.prop('checked'));
-            if ($checkbox.attr('id') === 'dark-mode-toggle') {
-                console.log('Diagnostic: Toggling dark mode:', $checkbox.prop('checked'));
-                $('body').toggleClass('dark-mode', $checkbox.prop('checked'));
-                debouncedSaveConfig();
-            }
-            if ($checkbox.attr('id') === 'auto-theme-toggle') {
-                console.log('Diagnostic: Toggling auto-theme:', $checkbox.prop('checked'));
-                if ($checkbox.prop('checked')) {
-                    $('#default-theme').prop('disabled', true).css('opacity', 0.5);
-                    if ($('#sunrise').text() === '---' || $('#sunset').text() === '---') {
-                        console.log('Diagnostic: Sunrise/sunset not available, fetching data');
-                        fetchData();
-                        setTimeout(() => {
-                            updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
-                        }, 1000);
-                    } else {
-                        updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
-                    }
-                } else {
-                    $('#default-theme').prop('disabled', false).css('opacity', 1);
-                    applyDefaultTheme($('#default-theme').val());
-                }
-                debouncedSaveConfig();
-            }
-        });
-
-        $('#settingsModal').on('change', '#default-theme', function() {
-            console.log('Diagnostic: Default theme changed:', $(this).val());
-            if (!$('#auto-theme-toggle').prop('checked')) {
-                applyDefaultTheme($(this).val());
-            }
-            debouncedSaveConfig();
-        });
-    } catch (e) {
-        console.error('Diagnostic: Error binding settings event listeners:', e);
-    }
 }
 
 function positionCloseButton() {
@@ -1273,7 +1425,7 @@ function rampFaders() {
                 checkActiveScene();
             }, 100);
         }
-    }, stepInterval);
+    }, 65);
 }
 
 function refreshPage() {

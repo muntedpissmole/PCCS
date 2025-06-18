@@ -186,50 +186,90 @@ body.dark-mode .scene-btn.active {
     grid-row: 2;
     padding: 1.2rem;
     position: relative;
-    overflow: hidden;
+    overflow: hidden; /* Clip content during overscroll */
+    display: flex;
+    flex-direction: column;
 }
 
 .lighting-slider {
     display: flex;
     width: 100%;
-    height: 100%;
-    overflow-x: auto;
+    overflow-x: scroll;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    -ms-overflow-style: none;
+    touch-action: pan-x;
+    flex: 1;
+    position: relative;
+    will-change: scroll-position, transform;
+    --overscroll-distance: 0px; /* Initialize CSS variable */
 }
 
 .lighting-slider::-webkit-scrollbar {
     display: none;
 }
 
+.lighting-slider.dragging {
+    scroll-snap-type: none;
+    scroll-behavior: auto;
+}
+
+.lighting-slider.overscroll-start,
+.lighting-slider.overscroll-end {
+    transition: transform 0.1s ease-out; /* Smooth during drag */
+}
+
+.lighting-slider.overscroll-start {
+    transform: translateX(calc(var(--overscroll-distance, 0px))); /* Stretch right */
+}
+
+.lighting-slider.overscroll-end {
+    transform: translateX(calc(-1 * var(--overscroll-distance, 0px))); /* Stretch left */
+}
+
+.lighting-slider,
+.lighting-slider * {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
 .lighting-page {
     flex: 0 0 100%;
     width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
     scroll-snap-align: start;
     padding: 0.5rem;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Align content to top */
+    align-items: stretch; /* Stretch grid to full width */
+    overflow: hidden; /* Clip content */
+    position: relative; /* Ensure transforms propagate */
+    height: 100%; /* Fill parent height */
 }
 
 .lighting-page.relay-page {
-    position: relative;
-    display: block;
-    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Center relays vertically */
+    align-items: center; /* Center relays horizontally */
+    padding: 0.5rem;
+    position: relative; /* Ensure it moves with slider transform */
+    height: 100%;
 }
 
 .lighting-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, 1fr); /* 6 sliders per page */
     gap: 1vw;
     width: 100%;
-    min-height: 320px;
-    flex-grow: 1;
+    min-height: 320px; /* Ensure sufficient height */
+    flex-grow: 1; /* Expand to fill space */
+    align-content: start; /* Prevent vertical stretching */
 }
 
 .relay-grid {
@@ -257,9 +297,13 @@ body.dark-mode .scene-btn.active {
     text-align: center;
     background: none;
     border: none;
-    min-height: 320px;
+    min-height: 320px; /* Match dimmer page height */
     touch-action: manipulation;
-    flex-grow: 1;
+    width: 100%; /* Fill grid cell */
+}
+
+.relay-grid .control-item {
+    min-height: 320px; /* Override the shorter height for relays */
 }
 
 .control-item label {
@@ -296,131 +340,189 @@ body.dark-mode .control-item input[type="range"][orient="vertical"] {
     box-shadow: inset 4px 4px 8px #1f1f1f, inset -4px -4px 8px rgba(58, 58, 58, 0.5);
 }
 
+/* Thumb styles */
 .control-item input[type="range"][orient="vertical"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 3rem;
-    height: 3rem;
-    background: #d0d0d0;
+    width: 3.2rem;
+    height: 3.2rem;
+    background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%); /* Gradient for 3D effect */
     border-radius: 50%;
     border: 2px solid rgba(0, 183, 235, 0.4);
     cursor: pointer;
-    box-shadow: 6px 6px 12px rgba(100, 100, 100, 0.3), -4px -4px 8px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.3);
+    box-shadow: 
+        6px 6px 12px rgba(100, 100, 100, 0.2), /* Outset shadow */
+        -4px -4px 8px rgba(220, 220, 220, 0.7), /* Inset shadow */
+        inset 2px 2px 4px rgba(255, 255, 255, 0.3), /* Inner highlight */
+        inset -2px -2px 4px rgba(0, 0, 0, 0.1); /* Inner shadow */
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .control-item input[type="range"][orient="vertical"]::-moz-range-thumb {
-    width: 3rem;
-    height: 3rem;
-    background: #d0d0d0;
+    width: 3.2rem;
+    height: 3.2rem;
+    background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%);
     border-radius: 50%;
     border: 2px solid rgba(0, 183, 235, 0.4);
     cursor: pointer;
-    box-shadow: 6px 6px 12px rgba(100, 100, 100, 0.3), -4px -4px 8px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.3);
+    box-shadow: 
+        6px 6px 12px rgba(100, 100, 100, 0.2),
+        -4px -4px 8px rgba(220, 220, 220, 0.7),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.3),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .control-item input[type="range"][orient="vertical"]::-ms-thumb {
-    width: 3rem;
-    height: 3rem;
-    background: #d0d0d0;
+    width: 3.2rem;
+    height: 3.2rem;
+    background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%);
     border-radius: 50%;
     border: 2px solid rgba(0, 183, 235, 0.4);
     cursor: pointer;
-    box-shadow: 6px 6px 12px rgba(100, 100, 100, 0.3), -4px -4px 8px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.3);
+    box-shadow: 
+        6px 6px 12px rgba(100, 100, 100, 0.2),
+        -4px -4px 8px rgba(220, 220, 220, 0.7),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.3),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 body.dark-mode .control-item input[type="range"][orient="vertical"]::-webkit-slider-thumb {
-    background: #1a1a1a;
-    box-shadow: 6px 6px 12px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
+    background: linear-gradient(135deg, #4a4a4a 0%, #333333 100%); /* Lighter gray gradient */
+    box-shadow: 
+        6px 6px 12px rgba(31, 31, 31, 0.5), /* Softer outset shadow */
+        -4px -4px 8px rgba(80, 80, 80, 0.3), /* Lighter inset shadow */
+        inset 2px 2px 4px rgba(80, 80, 80, 0.3), /* Inner highlight */
+        inset -2px -2px 4px rgba(0, 0, 0, 0.1); /* Inner shadow */
+    border: 2px solid rgba(0, 183, 235, 0.6); /* Stronger border for contrast */
 }
 
 body.dark-mode .control-item input[type="range"][orient="vertical"]::-moz-range-thumb {
-    background: #1a1a1a;
-    box-shadow: 6px 6px 12px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
+    background: linear-gradient(135deg, #4a4a4a 0%, #333333 100%);
+    box-shadow: 
+        6px 6px 12px rgba(31, 31, 31, 0.5),
+        -4px -4px 8px rgba(80, 80, 80, 0.3),
+        inset 2px 2px 4px rgba(80, 80, 80, 0.3),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.1);
+    border: 2px solid rgba(0, 183, 235, 0.6);
 }
 
 body.dark-mode .control-item input[type="range"][orient="vertical"]::-ms-thumb {
-    background: #1a1a1a;
-    box-shadow: 6px 6px 12px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
+    background: linear-gradient(135deg, #4a4a4a 0%, #333333 100%);
+    box-shadow: 
+        6px 6px 12px rgba(31, 31, 31, 0.5),
+        -4px -4px 8px rgba(80, 80, 80, 0.3),
+        inset 2px 2px 4px rgba(80, 80, 80, 0.3),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.1);
+    border: 2px solid rgba(0, 183, 235, 0.6);
 }
 
-.control-item input[type="range"][orient="vertical"]:hover::-webkit-slider-thumb,
-.control-item input[type="range"][orient="vertical"]:hover::-moz-range-thumb,
-.control-item input[type="range"][orient="vertical"]:hover::-ms-thumb {
+/* Interactive states for dark mode */
+body.dark-mode .control-item input[type="range"][orient="vertical"]:hover::-webkit-slider-thumb,
+body.dark-mode .control-item input[type="range"][orient="vertical"]:hover::-moz-range-thumb,
+body.dark-mode .control-item input[type="range"][orient="vertical"]:hover::-ms-thumb {
     transform: scale(1.1);
-    box-shadow: 8px 8px 14px rgba(100, 100, 100, 0.4), -4px -4px 10px rgba(220, 220, 220, 0.8), 0 0 6px rgba(0, 183, 235, 0.4);
+    box-shadow: 
+        8px 8px 14px rgba(31, 31, 31, 0.6),
+        -6px -6px 10px rgba(80, 80, 80, 0.4),
+        inset 3px 3px 6px rgba(100, 100, 100, 0.3),
+        inset -3px -3px 6px rgba(0, 0, 0, 0.2);
 }
 
-.control-item input[type="range"][orient="vertical"]:active::-webkit-slider-thumb,
-.control-item input[type="range"][orient="vertical"].on::-webkit-slider-thumb,
-.control-item input[type="range"][orient="vertical"]:active::-moz-range-thumb,
-.control-item input[type="range"][orient="vertical"].on::-moz-range-thumb,
-.control-item input[type="range"][orient="vertical"]:active::-ms-thumb,
-.control-item input[type="range"][orient="vertical"].on::-ms-thumb {
+body.dark-mode .control-item input[type="range"][orient="vertical"]:active::-webkit-slider-thumb,
+body.dark-mode .control-item input[type="range"][orient="vertical"].on::-webkit-slider-thumb,
+body.dark-mode .control-item input[type="range"][orient="vertical"]:active::-moz-range-thumb,
+body.dark-mode .control-item input[type="range"][orient="vertical"].on::-moz-range-thumb,
+body.dark-mode .control-item input[type="range"][orient="vertical"]:active::-ms-thumb,
+body.dark-mode .control-item input[type="range"][orient="vertical"].on::-ms-thumb {
     transform: scale(1.1);
-    box-shadow: inset 2px 2px 6px rgba(100, 100, 100, 0.4), inset -2px -2px 6px rgba(220, 220, 220, 0.7), 0 0 8px rgba(0, 183, 235, 0.5);
+    box-shadow: 
+        inset 4px 4px 8px rgba(31, 31, 31, 0.5),
+        inset -4px -4px 8px rgba(80, 80, 80, 0.4),
+        2px 2px 4px rgba(0, 183, 235, 0.4);
 }
 
 /* Toggle Slider */
 .toggle-slider {
     width: 3.5rem;
     height: 1.8rem;
-    background: #d0d0e0;
+    background: linear-gradient(135deg, #b0b0b0 0%, #a0a0a0 100%); /* Darker gradient for light mode */
     border-radius: 0.9rem;
     position: relative;
     cursor: pointer;
     transition: box-shadow 0.3s ease, background 0.3s ease, transform 0.2s ease;
-    box-shadow: inset 2px 2px 4px rgba(120, 120, 120, 0.3), inset -2px -2px 4px rgba(200, 200, 200, 0.6);
+    box-shadow: 
+        4px 4px 8px rgba(120, 120, 120, 0.3), /* Outset shadow */
+        -2px -2px 6px rgba(200, 200, 200, 0.6), /* Inset shadow */
+        inset 1px 1px 3px rgba(255, 255, 255, 0.3); /* Inner highlight */
     margin-top: 1rem;
     touch-action: manipulation;
 }
 
 body.dark-mode .toggle-slider {
-    background: #2a2a2a;
-    box-shadow: inset 4px 4px 8px #1f1f1f, inset -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 6px #00b7eb;
+    background: linear-gradient(135deg, #666666 0%, #555555 100%); /* Lighter gray for dark mode visibility */
+    box-shadow: 
+        4px 4px 8px rgba(31, 31, 31, 0.5),
+        -2px -2px 6px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 3px rgba(80, 80, 80, 0.3);
 }
 
 .toggle-slider.on {
-    background: rgba(0, 183, 235, 0.2);
-    box-shadow: 4px 4px 8px rgba(100, 100, 100, 0.3), -2px -2px 6px rgba(220, 220, 220, 0.7), inset 1px 1px 3px rgba(0, 183, 235, 0.2);
-    border: 2px solid rgba(0, 183, 235, 0.3);
+    background: linear-gradient(135deg, rgba(0, 183, 235, 0.2) 0%, rgba(0, 183, 235, 0.1) 100%); /* Subtle on gradient */
+    box-shadow: 
+        4px 4px 8px rgba(100, 100, 100, 0.3),
+        -2px -2px 6px rgba(220, 220, 220, 0.7),
+        inset 1px 1px 3px rgba(0, 183, 235, 0.2);
+    border: 2px solid rgba(0, 183, 235, 0.4);
 }
 
 body.dark-mode .toggle-slider.on {
-    background: rgba(0, 183, 235, 0.2);
-    box-shadow: 6px 6px 8px #1f1f1f, -4px -4px 6px rgba(58, 58, 58, 0.3), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
+    background: linear-gradient(135deg, rgba(0, 183, 235, 0.3) 0%, rgba(0, 183, 235, 0.2) 100%);
+    box-shadow: 
+        4px 4px 8px rgba(31, 31, 31, 0.5),
+        -2px -2px 6px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 3px rgba(0, 183, 235, 0.3);
+    border: 2px solid rgba(0, 183, 235, 0.6);
 }
 
 .toggle-slider .slider-circle {
     width: 1.4rem;
     height: 1.4rem;
-    background: #ffffff;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); /* Gradient for circle */
     border-radius: 50%;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
     left: 0.2rem;
     transition: left 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
-    box-shadow: 2px 2px 4px rgba(120, 120, 120, 0.3), -2px -2px 4px rgba(200, 200, 200, 0.6);
+    box-shadow: 
+        2px 2px 4px rgba(120, 120, 120, 0.3),
+        -1px -1px 3px rgba(200, 200, 200, 0.6),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.4);
+    pointer-events: none; /* Prevent blocking clicks */
 }
 
 .toggle-slider.on .slider-circle {
     left: calc(100% - 1.6rem);
-    box-shadow: 4px 4px 8px rgba(100, 100, 100, 0.4), -2px -2px 6px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.4);
+    box-shadow: 
+        3px 3px 6px rgba(100, 100, 100, 0.4),
+        -2px -2px 4px rgba(220, 220, 220, 0.7),
+        inset 1px 1px 2px rgba(0, 183, 235, 0.2);
 }
 
 body.dark-mode .toggle-slider .slider-circle {
-    background: #e0e0e0;
-    box-shadow: 4px 4px 8px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5);
+    background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%); /* Lighter circle in dark mode */
+    box-shadow: 
+        2px 2px 4px rgba(31, 31, 31, 0.5),
+        -1px -1px 3px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 2px rgba(80, 80, 80, 0.3);
 }
 
 body.dark-mode .toggle-slider.on .slider-circle {
-    box-shadow: 6px 6px 8px #1a1a1a, -4px -4px 6px rgba(63, 63, 63, 0.3), 0 0 6px #00b7eb;
+    box-shadow: 
+        3px 3px 6px rgba(31, 31, 31, 0.5),
+        -2px -2px 4px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 2px rgba(0, 183, 235, 0.3);
 }
 
 .toggle-slider:active,
@@ -432,36 +534,45 @@ body.dark-mode .toggle-slider.on .slider-circle {
 .settings-toggle {
     width: 3.5rem;
     height: 1.8rem;
-    background: #d0d0e0;
+    background: linear-gradient(135deg, #b0b0b0 0%, #a0a0a0 100%); /* Darker gradient for light mode */
     border-radius: 0.9rem;
     position: relative;
     cursor: pointer;
     transition: box-shadow 0.3s ease, background 0.3s ease, transform 0.2s ease;
-    box-shadow: inset 2px 2px 4px rgba(120, 120, 120, 0.3), inset -2px -2px 4px rgba(200, 200, 200, 0.6);
-    margin: 0;
+    box-shadow: 
+        4px 4px 8px rgba(120, 120, 120, 0.3), /* Outset shadow */
+        -2px -2px 6px rgba(200, 200, 200, 0.6), /* Inset shadow */
+        inset 1px 1px 3px rgba(255, 255, 255, 0.3); /* Inner highlight */
     touch-action: manipulation;
     display: flex;
     align-items: center;
-    position: relative;
+    pointer-events: auto; /* Ensure clicks are registered */
 }
 
 body.dark-mode .settings-toggle {
-    background: #2a2a2a;
-    box-shadow: inset 4px 4px 8px #1f1f1f, inset -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 6px #00b7eb;
+    background: linear-gradient(135deg, #4a4a4a 0%, #333333 100%); /* Lighter gray for dark mode visibility */
+    box-shadow: 
+        4px 4px 8px rgba(31, 31, 31, 0.5),
+        -2px -2px 6px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 3px rgba(80, 80, 80, 0.3);
 }
 
 .settings-toggle.on {
-    background: rgba(0, 183, 235, 0.2);
-    box-shadow: 4px 4px 8px rgba(100, 100, 100, 0.3), -2px -2px 6px rgba(220, 220, 220, 0.7), inset 1px 1px 3px rgba(0, 183, 235, 0.2);
-    border: 2px solid rgba(0, 183, 235, 0.3);
-    outline: none;
+    background: linear-gradient(135deg, rgba(0, 183, 235, 0.2) 0%, rgba(0, 183, 235, 0.1) 100%); /* Subtle on gradient */
+    box-shadow: 
+        4px 4px 8px rgba(100, 100, 100, 0.3),
+        -2px -2px 6px rgba(220, 220, 220, 0.7),
+        inset 1px 1px 3px rgba(0, 183, 235, 0.2);
+    border: 2px solid rgba(0, 183, 235, 0.4);
 }
 
 body.dark-mode .settings-toggle.on {
-    background: rgba(0, 183, 235, 0.2);
-    box-shadow: 6px 6px 8px #1f1f1f, -4px -4px 6px rgba(58, 58, 58, 0.3), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
-    outline: none;
+    background: linear-gradient(135deg, rgba(0, 183, 235, 0.3) 0%, rgba(0, 183, 235, 0.2) 100%);
+    box-shadow: 
+        4px 4px 8px rgba(31, 31, 31, 0.5),
+        -2px -2px 6px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 3px rgba(0, 183, 235, 0.3);
+    border: 2px solid rgba(0, 183, 235, 0.6);
 }
 
 .settings-toggle.on:active,
@@ -477,32 +588,41 @@ body.dark-mode .settings-toggle.on {
 .settings-toggle .slider-circle {
     width: 1.4rem;
     height: 1.4rem;
-    background: #ffffff;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); /* Gradient for circle */
     border-radius: 50%;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
     left: 0.2rem;
-    transition: left 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
-    box-shadow: 2px 2px 4px rgba(120, 120, 120, 0.3), -2px -2px 4px rgba(200, 200, 200, 0.6);
+    transition: left 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 
+        2px 2px 4px rgba(120, 120, 120, 0.3),
+        -1px -1px 3px rgba(200, 200, 200, 0.6),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.4);
+    pointer-events: none; /* Prevent blocking clicks */
 }
 
 .settings-toggle.on .slider-circle {
     left: calc(100% - 1.6rem);
-    box-shadow: 4px 4px 8px rgba(100, 100, 100, 0.4), -2px -2px 6px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.4);
+    box-shadow: 
+        3px 3px 6px rgba(100, 100, 100, 0.4),
+        -2px -2px 4px rgba(220, 220, 220, 0.7),
+        inset 1px 1px 2px rgba(0, 183, 235, 0.2);
 }
 
 body.dark-mode .settings-toggle .slider-circle {
-    background: #e0e0e0;
-    box-shadow: 4px 4px 8px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5);
+    background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%); /* Lighter circle in dark mode */
+    box-shadow: 
+        2px 2px 4px rgba(31, 31, 31, 0.5),
+        -1px -1px 3px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 2px rgba(80, 80, 80, 0.3);
 }
 
 body.dark-mode .settings-toggle.on .slider-circle {
-    box-shadow: 6px 6px 8px #1a1a1a, -4px -4px 6px rgba(63, 63, 63, 0.3), 0 0 6px #00b7eb;
-}
-
-.settings-toggle .slider-circle:active {
-    transform: scale(1.1);
+    box-shadow: 
+        3px 3px 6px rgba(31, 31, 31, 0.5),
+        -2px -2px 4px rgba(80, 80, 80, 0.3),
+        inset 1px 1px 2px rgba(0, 183, 235, 0.3);
 }
 
 /* Pagination Dots */
@@ -522,24 +642,55 @@ body.dark-mode .settings-toggle.on .slider-circle {
 .dot {
     width: 0.6rem;
     height: 0.6rem;
-    background: rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, #b0b0b0 0%, #a0a0a0 100%); /* Darker gradient for light mode */
     border-radius: 50%;
     cursor: pointer;
-    transition: background 0.3s ease;
-    box-shadow: var(--shadow-out);
-}
-
-.dot.active {
-    background: var(--primary-color);
-    box-shadow: 2px 2px 4px rgba(100, 100, 100, 0.4), -1px -1px 2px rgba(220, 220, 220, 0.7);
+    transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+    box-shadow: 
+        2px 2px 4px rgba(120, 120, 120, 0.3), /* Outset shadow */
+        -1px -1px 3px rgba(200, 200, 200, 0.6), /* Inset shadow */
+        inset 1px 1px 2px rgba(255, 255, 255, 0.3); /* Inner highlight */
 }
 
 body.dark-mode .dot {
-    background: rgba(255, 255, 255, 0.3);
+    background: linear-gradient(135deg, #666666 0%, #555555 100%); /* Lighter gray for dark mode visibility */
+    box-shadow: 
+        2px 2px 4px rgba(31, 31, 31, 0.5),
+        -1px -1px 3px rgba(100, 100, 100, 0.3),
+        inset 1px 1px 2px rgba(100, 100, 100, 0.3);
+}
+
+.dot.active {
+    background: linear-gradient(135deg, #00b7eb 0%, #0099c7 100%); /* Gradient for active state */
+    box-shadow: 
+        3px 3px 6px rgba(100, 100, 100, 0.4), /* Enhanced outset shadow */
+        -2px -2px 4px rgba(220, 220, 220, 0.7), /* Enhanced inset shadow */
+        inset 1px 1px 3px rgba(0, 183, 235, 0.3); /* Inner accent */
+    transform: scale(1.2); /* Slight enlargement for emphasis */
 }
 
 body.dark-mode .dot.active {
-    background: var(--primary-color);
+    background: linear-gradient(135deg, #00b7eb 0%, #0099c7 100%);
+    box-shadow: 
+        3px 3px 6px rgba(31, 31, 31, 0.5),
+        -2px -2px 4px rgba(100, 100, 100, 0.3),
+        inset 1px 1px 3px rgba(0, 183, 235, 0.3);
+    transform: scale(1.2);
+}
+
+.dot:hover {
+    transform: scale(1.1);
+    box-shadow: 
+        3px 3px 6px rgba(120, 120, 120, 0.4),
+        -1px -1px 3px rgba(200, 200, 200, 0.7),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+body.dark-mode .dot:hover {
+    box-shadow: 
+        3px 3px 6px rgba(31, 31, 31, 0.6),
+        -1px -1px 3px rgba(100, 100, 100, 0.4),
+        inset 1px 1px 2px rgba(100, 100, 100, 0.3);
 }
 
 /* Settings Modal */

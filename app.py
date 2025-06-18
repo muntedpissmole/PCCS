@@ -591,6 +591,29 @@ def get_pca_states():
     except Exception as e:
         logging.error(f"Error in get_pca_states: {e}")
         return jsonify({"error": str(e)}), 500
+        
+@app.route('/get_relay_states', methods=['GET'])
+def get_relay_states():
+    try:
+        if not h:
+            logging.error("get_relay_states called but GPIO not initialized")
+            return jsonify({"error": "GPIO not initialized"}), 503
+        
+        states = {}
+        for pin in config['channels']['relays']:
+            try:
+                gpio_state = lgpio.gpio_read(h, int(pin))
+                states[pin] = 1 if gpio_state == 0 else 0  # Active-low: 0=on, 1=off
+                logging.debug(f"Relay pin {pin} ({config['channels']['relays'][pin]['name']}): {'on' if states[pin] == 1 else 'off'}")
+            except Exception as e:
+                logging.error(f"Error reading relay pin {pin}: {e}")
+                states[pin] = config['relay_states'].get(pin, 0)  # Fallback to saved state
+                logging.warning(f"Falling back to saved state for pin {pin}: {'on' if states[pin] == 1 else 'off'}")
+        
+        return jsonify(states)
+    except Exception as e:
+        logging.error(f"Error in get_relay_states: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/get_data', methods=['GET'])
 def get_data():

@@ -189,7 +189,7 @@
         "22": 0
     },
     "theme": {
-        "darkMode": "on",
+        "darkMode": "off",
         "autoTheme": "on",
         "defaultTheme": "dark",
         "screenBrightness": "medium"
