@@ -14,7 +14,8 @@
         <div class="scenes-panel glass">
             <div class="scenes-grid">
                 {% for scene in scenes %}
-                    <button class="scene-btn" onclick="activateScene('{{ scene }}')">
+                    <button class="scene-btn{% if not pca_available %} disabled{% endif %}" 
+                            {% if pca_available %}onclick="activateScene('{{ scene }}')"{% endif %}>
                         <i class="fas 
                             {% if scene == 'evening' %}fa-cloud-sun
                             {% elif scene == 'night' %}fa-moon
@@ -59,56 +60,56 @@
                 <div class="data-item">
                     <span><i class="fas fa-inbox"></i> Rear Drawer:</span>
                     <span id="rear_drawer">Unknown</span>
-                </div>
-                <div class="data-item" style="grid-column: 1 / 3;">
-                    <span><i class="fas fa-clock"></i> Date & Time:</span>
-                    <span id="current_datetime">N/A</span>
-                </div>
-            </div>
-        </div>
-		<div class="lighting-panel glass">
-			<div class="lighting-slider">
-				{% set pca_channels = pca9685_channels.items()|rejectattr('0', 'in', ['3', '9'])|list %}
-				{% for i in range(0, pca_channels|length, 6) %}
-					<div class="lighting-page">
-						<div class="lighting-grid">
-							{% for channel, info in pca_channels[i:i+6] %}
-								<div class="control-item">
-									<label>{{ info.name }}</label>
-									<span class="brightness-value" id="pca-value-{{ channel }}">0%</span>
-									<input type="range" min="0" max="100" value="0" id="pca-{{ channel }}"
-										   orient="vertical" data-channel="{{ channel }}" aria-label="Adjust brightness for {{ info.name }}">
-									<div class="toggle-slider" onclick="toggleLight('pca9685', '{{ channel }}', this)">
-										<div class="slider-circle"></div>
-									</div>
-								</div>
-							{% endfor %}
-						</div>
-					</div>
-				{% endfor %}
-				<div class="lighting-page relay-page">
-					<div class="relay-grid">
-						{% for channel, info in relay_channels.items() %}
-							<div class="control-item">
-								<label>{{ info.name }}</label>
-								<span class="switch-state" id="relay-value-{{ channel }}">Off</span>
-								<div class="toggle-slider" onclick="toggleRelay('relays', '{{ channel }}', this)">
-									<div class="slider-circle"></div>
-								</div>
-							</div>
-						{% endfor %}
-					</div>
+                </div>				
+				<div class="data-item" style="grid-column: 1 / 3;">
+					<span><i class="fas fa-clock"></i> Date & Time:</span>
+					<span id="current_datetime">N/A</span>
 				</div>
 			</div>
-			<div class="pagination-dots">
-				{% set page_count = (pca_channels|length / 6)|round(0, 'ceil')|int %}
-				{% for i in range(page_count + 1) %}
-					<span class="dot" data-page="{{ i }}"></span>
-				{% endfor %}
-			</div>
-			<i class="fas fa-sync-alt refresh-icon" onclick="refreshPage()"></i>
-			<i class="fas fa-gear gear-icon" onclick="openSettings()"></i>
 		</div>
+        <div class="lighting-panel glass">
+            <div class="lighting-slider">
+                {% set pca_channels = pca9685_channels.items()|rejectattr('0', 'in', ['3', '9'])|list %}
+                {% for i in range(0, pca_channels|length, 6) %}
+                    <div class="lighting-page">
+                        <div class="lighting-grid">
+                            {% for channel, info in pca_channels[i:i+6] %}
+                                <div class="control-item">
+                                    <label>{{ info.name }}</label>
+                                    <span class="brightness-value" id="pca-value-{{ channel }}">0%</span>
+                                    <input type="range" min="0" max="100" value="0" id="pca-{{ channel }}"
+                                           orient="vertical" data-channel="{{ channel }}" aria-label="Adjust brightness for {{ info.name }}">
+                                    <div class="toggle-slider" onclick="toggleLight('pca9685', '{{ channel }}', this)">
+                                        <div class="slider-circle"></div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="lighting-page relay-page">
+                    <div class="relay-grid">
+                        {% for channel, info in relay_channels.items() %}
+                            <div class="control-item">
+                                <label>{{ info.name }}</label>
+                                <span class="switch-state" id="relay-value-{{ channel }}">Off</span>
+                                <div class="toggle-slider" onclick="toggleRelay('relays', '{{ channel }}', this)">
+                                    <div class="slider-circle"></div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="pagination-dots">
+                {% set page_count = (pca_channels|length / 6)|round(0, 'ceil')|int %}
+                {% for i in range(page_count + 1) %}
+                    <span class="dot" data-page="{{ i }}"></span>
+                {% endfor %}
+            </div>
+            <i class="fas fa-sync-alt refresh-icon" onclick="refreshPage()"></i>
+            <i class="fas fa-gear gear-icon" onclick="openSettings()"></i>
+        </div>
     </div>
     <div class="settings-modal" id="settingsModal">
         <span class="close-settings" onclick="closeSettings(event)"><i class="fas fa-times"></i></span>
@@ -117,46 +118,48 @@
                 <button class="tab-btn active" onclick="openTab('general')">General</button>
                 <button class="tab-btn" onclick="openTab('scene-editor')">Scene Editor</button>
                 <button class="tab-btn" onclick="openTab('event-scheduler')">Event Scheduler</button>
+                <button class="tab-btn" onclick="openTab('help')">Help</button>
             </div>
-			<div id="general-tab" class="tab-content active">
-				<h2>General Settings</h2>
-				<!-- Top left: Dark Mode -->
-				<div class="setting-item">
-					<span>Dark Mode:</span>
-					<label class="settings-toggle" for="dark-mode-toggle">
-						<input type="checkbox" id="dark-mode-toggle" class="toggle-input">
-						<span class="slider-circle"></span>
-					</label>
-				</div>
-				<!-- Top right: Screen Brightness -->
-				<div class="setting-item">
-					<span>Screen Brightness:</span>
-					<div class="slider-container">
-						<input type="range" min="10" max="100" value="50" id="screen-brightness" class="range-slider">
-						<span id="screen-brightness-value">50%</span>
+            <div id="general-tab" class="tab-content active">
+                <h2>General Settings</h2>
+                <!-- Top left: Dark Mode -->
+                <div class="setting-item">
+                    <span>Dark Mode:</span>
+                    <label class="settings-toggle" for="dark-mode-toggle">
+                        <input type="checkbox" id="dark-mode-toggle" class="toggle-input">
+                        <span class="slider-circle"></span>
+                    </label>
+                </div>
+                <!-- Top right: Screen Brightness -->
+					<div class="setting-item brightness-setting">
+						<span>Screen Brightness:</span>
+						<div class="brightness-buttons">
+							<button class="brightness-btn" data-brightness="low" aria-label="Set screen brightness to Low">Low</button>
+							<button class="brightness-btn active" data-brightness="medium" aria-label="Set screen brightness to Medium">Medium</button>
+							<button class="brightness-btn" data-brightness="high" aria-label="Set screen brightness to High">High</button>
+						</div>
 					</div>
-				</div>
-				<!-- Middle left: Auto Theme Switch -->
-				<div class="setting-item">
-					<span>Auto Theme Switch:</span>
-					<label class="settings-toggle" for="auto-theme-toggle">
-						<input type="checkbox" id="auto-theme-toggle" class="toggle-input">
-						<span class="slider-circle"></span>
-					</label>
-				</div>
-				<!-- Middle right: Shutdown -->
-				<div class="setting-item">
-					<button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
-				</div>
-				<!-- Bottom left: Default Theme -->
-				<div class="setting-item">
-					<span>Default Theme:</span>
-					<select id="default-theme" disabled>
-						<option value="light">Light</option>
-						<option value="dark">Dark</option>
-					</select>
-				</div>
-			</div>
+                <!-- Middle left: Auto Theme Switch -->
+                <div class="setting-item">
+                    <span>Auto Theme Switch:</span>
+                    <label class="settings-toggle" for="auto-theme-toggle">
+                        <input type="checkbox" id="auto-theme-toggle" class="toggle-input">
+                        <span class="slider-circle"></span>
+                    </label>
+                </div>
+                <!-- Middle right: Shutdown -->
+                <div class="setting-item shutdown-container">
+                    <button class="shutdown-btn" onclick="initiateShutdown()">Shutdown System</button>
+                </div>
+                <!-- Bottom left: Default Theme -->
+                <div class="setting-item">
+                    <span>Default Theme:</span>
+                    <select id="default-theme" disabled>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+            </div>
             <div id="scene-editor-tab" class="tab-content">
                 <h2>Scene Editor</h2>
                 <p>(Coming Soon)</p>
@@ -165,7 +168,21 @@
                 <h2>Event Scheduler</h2>
                 <p>(Coming Soon)</p>
             </div>
-            <div class="version">Version: 0.3.0-alpha3</div>
+			<div id="help-tab" class="tab-content">
+				<h2>Help</h2>
+				<div class="setting-item">
+					<span>GPS Coordinates:</span>
+					<span class="setting-value" id="gps-coordinates">N/A</span>
+				</div>
+				<div class="setting-item">
+					<span>Software Version:</span>
+					<span class="setting-value">1.4.0-beta 1</span>
+				</div>
+				<div class="setting-item">
+					<span>GitHub:</span>
+					<div class="github-link">github.com/muntedpissmole/pccs</div>
+				</div>
+			</div>
         </div>
     </div>
 
@@ -174,7 +191,7 @@ $(document).ready(function() {
     console.log('Diagnostic: Page loaded, starting initialization');
     try {
         loadConfig();
-		loadScenes();
+        loadScenes();
         fetchData();
         fetchPcaStates();
         fetchRelayStates();
@@ -234,115 +251,115 @@ $(document).ready(function() {
         const debouncedUpdateActiveDot = debounce(updateActiveDot, 100);
         lightingSlider.addEventListener('scroll', debouncedUpdateActiveDot);
 
-		// Swipe handling
-		let isDragging = false;
-		let startX = 0;
-		let scrollLeft = 0;
+        // Swipe handling
+        let isDragging = false;
+        let startX = 0;
+        let scrollLeft = 0;
 
-		// Snap to page
-		function snapToPage(targetPage, instant = false) {
-			const pageWidth = lightingSlider.clientWidth || 1;
-			const maxPage = dots.length - 1;
-			targetPage = Math.max(0, Math.min(targetPage, maxPage));
-			const targetScroll = targetPage * pageWidth;
-			console.log(`Diagnostic: Snapping to page ${targetPage}, pageWidth=${pageWidth}, targetScroll=${targetScroll}, instant=${instant}`);
-			lightingSlider.scrollTo({
-				left: targetScroll,
-				behavior: instant ? 'auto' : 'smooth'
-			});
-			setTimeout(updateActiveDot, 50); // Reduced delay for faster dot update
-		}
+        // Snap to page
+        function snapToPage(targetPage, instant = false) {
+            const pageWidth = lightingSlider.clientWidth || 1;
+            const maxPage = dots.length - 1;
+            targetPage = Math.max(0, Math.min(targetPage, maxPage));
+            const targetScroll = targetPage * pageWidth;
+            console.log(`Diagnostic: Snapping to page ${targetPage}, pageWidth=${pageWidth}, targetScroll=${targetScroll}, instant=${instant}`);
+            lightingSlider.scrollTo({
+                left: targetScroll,
+                behavior: instant ? 'auto' : 'smooth'
+            });
+            setTimeout(updateActiveDot, 50);
+        }
 
-		// Mouse events
-		lightingSlider.addEventListener('mousedown', (e) => {
-			isDragging = true;
-			startX = e.pageX - lightingSlider.offsetLeft;
-			scrollLeft = lightingSlider.scrollLeft;
-			lightingSlider.style.cursor = 'grabbing';
-			console.log(`Diagnostic: Mouse down at X=${startX}, scrollLeft=${scrollLeft}`);
-		});
+        // Mouse events
+        lightingSlider.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.pageX - lightingSlider.offsetLeft;
+            scrollLeft = lightingSlider.scrollLeft;
+            lightingSlider.style.cursor = 'grabbing';
+            console.log(`Diagnostic: Mouse down at X=${startX}, scrollLeft=${scrollLeft}`);
+        });
 
-		lightingSlider.addEventListener('mousemove', (e) => {
-			if (!isDragging) return;
-			const x = e.pageX - lightingSlider.offsetLeft;
-			const walk = (x - startX) * 3; // Increased multiplier for faster movement
-			lightingSlider.scrollLeft = scrollLeft - walk;
-			console.log(`Diagnostic: Mouse move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
-		});
+        lightingSlider.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const x = e.pageX - lightingSlider.offsetLeft;
+            const walk = (x - startX) * 3;
+            lightingSlider.scrollLeft = scrollLeft - walk;
+            console.log(`Diagnostic: Mouse move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
+        });
 
-		lightingSlider.addEventListener('mouseup', (e) => {
-			if (isDragging) {
-				const x = e.pageX - lightingSlider.offsetLeft;
-				const distance = (startX - x) * 3; // Match multiplier
-				const pageWidth = lightingSlider.clientWidth || 1;
-				let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
-				if (Math.abs(distance) > 15) { // Lowered threshold for flick
-					targetPage += distance > 0 ? 1 : -1;
-					snapToPage(targetPage, true); // Instant snap for flick
-				} else {
-					snapToPage(targetPage); // Smooth snap for drag
-				}
-			}
-			isDragging = false;
-			lightingSlider.style.cursor = 'grab';
-			console.log('Diagnostic: Mouse up');
-		});
+        lightingSlider.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                const x = e.pageX - lightingSlider.offsetLeft;
+                const distance = (startX - x) * 3;
+                const pageWidth = lightingSlider.clientWidth || 1;
+                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+                if (Math.abs(distance) > 15) {
+                    targetPage += distance > 0 ? 1 : -1;
+                    snapToPage(targetPage, true);
+                } else {
+                    snapToPage(targetPage);
+                }
+            }
+            isDragging = false;
+            lightingSlider.style.cursor = 'grab';
+            console.log('Diagnostic: Mouse up');
+        });
 
-		lightingSlider.addEventListener('mouseleave', () => {
-			if (isDragging) {
-				const pageWidth = lightingSlider.clientWidth || 1;
-				snapToPage(Math.round(lightingSlider.scrollLeft / pageWidth));
-			}
-			isDragging = false;
-			lightingSlider.style.cursor = 'grab';
-			console.log('Diagnostic: Mouse leave');
-		});
+        lightingSlider.addEventListener('mouseleave', () => {
+            if (isDragging) {
+                const pageWidth = lightingSlider.clientWidth || 1;
+                snapToPage(Math.round(lightingSlider.scrollLeft / pageWidth));
+            }
+            isDragging = false;
+            lightingSlider.style.cursor = 'grab';
+            console.log('Diagnostic: Mouse leave');
+        });
 
-		// Touch events
-		lightingSlider.addEventListener('touchstart', (e) => {
-			if (e.touches.length > 1) return; // Ignore multi-touch
-			isDragging = true;
-			startX = e.touches[0].pageX - lightingSlider.offsetLeft;
-			scrollLeft = lightingSlider.scrollLeft;
-			console.log(`Diagnostic: Touch start at X=${startX}, scrollLeft=${scrollLeft}`);
-		}, { passive: true });
+        // Touch events
+        lightingSlider.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) return;
+            isDragging = true;
+            startX = e.touches[0].pageX - lightingSlider.offsetLeft;
+            scrollLeft = lightingSlider.scrollLeft;
+            console.log(`Diagnostic: Touch start at X=${startX}, scrollLeft=${scrollLeft}`);
+        }, { passive: true });
 
-		lightingSlider.addEventListener('touchmove', (e) => {
-			if (!isDragging || e.touches.length > 1) return;
-			const x = e.touches[0].pageX - lightingSlider.offsetLeft;
-			const walk = (x - startX) * 3; // Increased multiplier for faster movement
-			lightingSlider.scrollLeft = scrollLeft - walk;
-			console.log(`Diagnostic: Touch move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
-		}, { passive: true });
+        lightingSlider.addEventListener('touchmove', (e) => {
+            if (!isDragging || e.touches.length > 1) return;
+            const x = e.touches[0].pageX - lightingSlider.offsetLeft;
+            const walk = (x - startX) * 3;
+            lightingSlider.scrollLeft = scrollLeft - walk;
+            console.log(`Diagnostic: Touch move to X=${x}, walk=${walk}, scrollLeft=${lightingSlider.scrollLeft}`);
+        }, { passive: true });
 
-		lightingSlider.addEventListener('touchend', (e) => {
-			if (isDragging) {
-				const x = e.changedTouches[0].pageX - lightingSlider.offsetLeft;
-				const distance = (startX - x) * 3; // Match multiplier
-				const pageWidth = lightingSlider.clientWidth || 1;
-				let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
-				if (Math.abs(distance) > 15) { // Lowered threshold for flick
-					targetPage += distance > 0 ? 1 : -1;
-					snapToPage(targetPage, true); // Instant snap for flick
-				} else {
-					snapToPage(targetPage); // Smooth snap for drag
-				}
-			}
-			isDragging = false;
-			console.log('Diagnostic: Touch end');
-		}, { passive: true });
+        lightingSlider.addEventListener('touchend', (e) => {
+            if (isDragging) {
+                const x = e.changedTouches[0].pageX - lightingSlider.offsetLeft;
+                const distance = (startX - x) * 3;
+                const pageWidth = lightingSlider.clientWidth || 1;
+                let targetPage = Math.round(lightingSlider.scrollLeft / pageWidth);
+                if (Math.abs(distance) > 15) {
+                    targetPage += distance > 0 ? 1 : -1;
+                    snapToPage(targetPage, true);
+                } else {
+                    snapToPage(targetPage);
+                }
+            }
+            isDragging = false;
+            console.log('Diagnostic: Touch end');
+        }, { passive: true });
 
-		// Prevent overscrolling
-		lightingSlider.addEventListener('scroll', () => {
-			const pageWidth = lightingSlider.clientWidth || 1;
-			const maxScroll = pageWidth * (dots.length - 1);
-			if (lightingSlider.scrollLeft < 0) {
-				lightingSlider.scrollLeft = 0;
-			} else if (lightingSlider.scrollLeft > maxScroll) {
-				lightingSlider.scrollLeft = maxScroll;
-			}
-			debouncedUpdateActiveDot();
-		}, { passive: true });
+        // Prevent overscrolling
+        lightingSlider.addEventListener('scroll', () => {
+            const pageWidth = lightingSlider.clientWidth || 1;
+            const maxScroll = pageWidth * (dots.length - 1);
+            if (lightingSlider.scrollLeft < 0) {
+                lightingSlider.scrollLeft = 0;
+            } else if (lightingSlider.scrollLeft > maxScroll) {
+                lightingSlider.scrollLeft = maxScroll;
+            }
+            debouncedUpdateActiveDot();
+        }, { passive: true });
 
         // Slider event listeners for lighting controls
         document.querySelectorAll('input[type="range"]:not(#screen-brightness)').forEach(slider => {
@@ -439,6 +456,36 @@ $(document).ready(function() {
                 }
             });
         });
+
+        $('.brightness-btn').on('click', function() {
+            console.log('Diagnostic: Brightness button clicked:', $(this).data('brightness'));
+            $('.brightness-btn').removeClass('active');
+            $(this).addClass('active');
+            const brightness = $(this).data('brightness');
+            setScreenBrightness(brightness);
+            debouncedSaveConfig();
+        });
+
+        // Check for obsolete slider elements
+        if ($('#screen-brightness').length || $('#screen-brightness-value').length) {
+            console.warn('Diagnostic: Found obsolete screen brightness slider elements');
+            $('#screen-brightness, #screen-brightness-value').remove();
+        }
+
+        $('#settingsModal').on('click', function(event) {
+            console.log('Diagnostic: Click on settings-modal, target:', event.target);
+            if ($(event.target).is('#settingsModal')) {
+                console.log('Diagnostic: Clicked on backdrop, closing modal');
+                closeSettings(event);
+            } else {
+                console.log('Diagnostic: Clicked inside modal content, ignoring');
+            }
+        });
+
+        $('.settings-content').on('click', function(event) {
+            console.log('Diagnostic: Click inside settings-content, stopping propagation');
+            event.stopPropagation();
+        });
     } catch (e) {
         console.error('Diagnostic: Error in document.ready:', e);
     }
@@ -452,6 +499,25 @@ function debounce(func, wait) {
     };
 }
 
+function setScreenBrightness(brightness) {
+    console.log(`Diagnostic: Setting screen brightness to ${brightness} via SSH`);
+    $.ajax({
+        url: '/set_screen_brightness',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ brightness: brightness }),
+        success: function(response) {
+            console.log(`Diagnostic: Screen brightness set to ${brightness}:`, response);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error(`Diagnostic: Error setting screen brightness to ${brightness}:`, textStatus, errorThrown, 'Response:', jqXHR.responseText);
+            alert('Failed to set screen brightness. Please try again.');
+        }
+    });
+}
+
+const debouncedSaveConfig = debounce(saveConfig, 500);
+
 let lastSetBrightness = {};
 
 function fetchData() {
@@ -461,34 +527,53 @@ function fetchData() {
         $('#sunrise').text(data.sunrise === "---" || !data.sunrise ? "---" : data.sunrise);
         $('#sunset').text(data.sunset === "---" || !data.sunset ? "---" : data.sunset);
         $('#current_datetime').text(data.current_datetime === "---" || !data.current_datetime ? "---" : data.current_datetime);
-        $('#temperature').text(data.temperature !== 'N/A' ? data.temperature + '°C' : 'N/A');
-        $('#battery_level').text(data.battery_level && data.battery_level !== 'N/A' ? data.battery_level : 'N/A');
-        $('#tank_level').text(data.tank_level && data.tank_level !== 'N/A' ? data.tank_level + '% Full' : 'Error').toggleClass('error', data.tank_level === 'N/A');
+        $('#temperature').text(data.temperature !== 'Error' ? data.temperature + '°C' : 'Error')
+                        .toggleClass('error', data.temperature === 'Error');
+        $('#battery_level').text(data.battery_level !== 'Error' ? data.battery_level : 'Error')
+                          .toggleClass('error', data.battery_level === 'Error');
+        $('#tank_level').text(data.tank_level !== 'Error' ? data.tank_level + '% Full' : 'Error')
+                       .toggleClass('error', data.tank_level === 'Error');
         $('#storage_panel').text(data.storage_panel || 'Unknown');
         $('#rear_drawer').text(data.rear_drawer || 'Unknown');
         const gpsFix = data.gps_fix || 'No';
         const gpsSatellites = data.gps_quality.match(/\d+/) ? data.gps_quality.match(/\d+/)[0] : '0';
         const gpsDisplay = gpsFix === 'Yes' ? `${gpsSatellites} Satellites` : 'No';
         $('#gps_fix').text(gpsDisplay);
+        const gpsCoords = (data.latitude && data.longitude) ? 
+            `${parseFloat(data.latitude).toFixed(6)}, ${parseFloat(data.longitude).toFixed(6)}` : 'N/A';
+        $('#gps-coordinates').text(gpsCoords);
     }).fail(function(jqXHR, textStatus, errorThrown) {
         console.error('Diagnostic: Error fetching /get_data:', textStatus, errorThrown);
         console.log('Diagnostic: Response text:', jqXHR.responseText);
-        console.log('Diagnostic: Setting tank_level to N/A due to server failure');
+        console.log('Diagnostic: Setting sensor values to Error due to server failure');
         $('#sunrise').text('---');
         $('#sunset').text('---');
         $('#current_datetime').text('---');
-        $('#temperature').text('N/A');
-        $('#battery_level').text('N/A');
+        $('#temperature').text('Error').toggleClass('error', true);
+        $('#battery_level').text('Error').toggleClass('error', true);
         $('#tank_level').text('Error').toggleClass('error', true);
         $('#storage_panel').text('Unknown');
         $('#rear_drawer').text('Unknown');
         $('#gps_fix').text('No');
+        $('#gps-coordinates').text('N/A');
     });
 }
 
 function fetchPcaStates() {
     $.get('/get_pca_states', function(data) {
         try {
+            if (data.error === "PCA9685 not detected") {
+                console.log('Diagnostic: PCA9685 not detected, disabling controls');
+                $('input[id^="pca-"]').each(function() {
+                    const channel = $(this).data('channel');
+                    $(this).prop('disabled', true).closest('.control-item').addClass('disabled');
+                    $(`#pca-value-${channel}`).text('Error').addClass('error');
+                    $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`)
+                        .addClass('disabled').off('click');
+                });
+                $('.scene-btn').addClass('disabled').off('click');
+                return;
+            }
             const states = typeof data === 'string' ? JSON.parse(data) : data;
             console.log('Diagnostic: PCA states received:', states);
             Object.keys(states).forEach(channel => {
@@ -509,21 +594,34 @@ function fetchPcaStates() {
                     return;
                 }
                 console.log(`Diagnostic: Updating channel ${channel}: brightness=${brightness}%`);
-                valueElement.text(brightness + '%');
-                sliderElement.val(brightness);
+                valueElement.text(brightness + '%').removeClass('error');
+                sliderElement.val(brightness).prop('disabled', false);
                 sliderElement[0].style.setProperty('--value', brightness + '%');
+                sliderElement.closest('.control-item').removeClass('disabled');
                 if (brightness > 0) {
-                    toggleSlider.addClass('on');
+                    toggleSlider.addClass('on').removeClass('disabled');
                 } else {
-                    toggleSlider.removeClass('on');
+                    toggleSlider.removeClass('on').removeClass('disabled');
                 }
             });
-            checkActiveScene(); // Add this line
+            $('.scene-btn').removeClass('disabled').each(function() {
+                const scene = $(this).text().trim().toLowerCase().replace(' ', '_');
+                $(this).off('click').on('click', () => activateScene(scene));
+            });
+            checkActiveScene();
         } catch (e) {
             console.error('Diagnostic: Error parsing /get_pca_states:', e);
         }
     }).fail(function(jqXHR, textStatus, errorThrown) {
         console.error('Diagnostic: Error fetching /get_pca_states:', textStatus, errorThrown);
+        $('input[id^="pca-"]').each(function() {
+            const channel = $(this).data('channel');
+            $(this).prop('disabled', true).closest('.control-item').addClass('disabled');
+            $(`#pca-value-${channel}`).text('Error').addClass('error');
+            $(`.control-item:has(input[data-channel="${channel}"]) .toggle-slider`)
+                .addClass('disabled').off('click');
+        });
+        $('.scene-btn').addClass('disabled').off('click');
     });
 }
 
@@ -540,7 +638,7 @@ function fetchRelayStates() {
                 toggleSlider.removeClass('on');
             }
         });
-        checkActiveScene(); // Add this line
+        checkActiveScene();
     }).fail(function(jqXHR, textStatus, errorThrown) {
         console.error('Diagnostic: Error fetching /get_relay_states:', textStatus, errorThrown);
     });
@@ -561,7 +659,7 @@ function setBrightness(type, channel, value) {
             setTimeout(() => {
                 fetchPcaStates();
                 startPcaStateInterval();
-                checkActiveScene(); // Add this line
+                checkActiveScene();
             }, 800);
         },
         error: function(jqXHR, textStatus, errorThrown) {
@@ -598,7 +696,7 @@ function toggleLight(type, channel, slider) {
             console.log(`Diagnostic: Toggle success for channel ${channel}:`, response);
             setTimeout(() => {
                 fetchPcaStates();
-                checkActiveScene(); // Add this line
+                checkActiveScene();
             }, 800);
         },
         error: function(jqXHR, textStatus, errorThrown) {
@@ -628,7 +726,7 @@ function toggleRelay(type, channel, slider) {
         success: function(response) {
             console.log(`Diagnostic: Toggle success for relay ${channel}:`, response);
             fetchRelayStates();
-            checkActiveScene(); // Add this line
+            checkActiveScene();
         },
         error: function(jqXHR, textStatus, errorThrown) {
             console.error(`Diagnostic: Error in toggleRelay for channel ${channel}:`, textStatus, errorThrown);
@@ -638,9 +736,9 @@ function toggleRelay(type, channel, slider) {
 
 function activateScene(scene) {
     console.log(`Diagnostic: Activating scene ${scene}`);
-    $('.scene-btn').removeClass('active'); // Clear active state immediately
+    $('.scene-btn').removeClass('active');
     currentActiveScene = null;
-    checkActiveScene(); // Immediate check
+    checkActiveScene();
     rampFaders();
     $.ajax({
         url: '/activate_scene',
@@ -673,7 +771,7 @@ function initiateShutdown() {
             url: '/shutdown',
             type: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ token: 'UVzI8Usfz2zzsgNl0YRGCwGcCvPY4998dUlftEWSTTM' }),
+            data: JSON.stringify({ token: 'kzqWazMQIO8YrefrqwEi4cFvM9pCrlCAYG05FLpjgpc' }),
             success: function(response) {
                 console.log('Diagnostic: Shutdown command sent:', response);
                 alert('Both systems are shutting down. Please wait a moment before powering off.');
@@ -764,13 +862,14 @@ function applyDefaultTheme(theme) {
 }
 
 function saveConfig() {
+    const brightness = $('.brightness-btn.active').data('brightness') || 'medium';
     const config = {
         theme: {
             darkMode: $('#dark-mode-toggle').prop('checked') ? 'on' : 'off',
             autoTheme: $('#auto-theme-toggle').prop('checked') ? 'on' : 'off',
-            defaultTheme: $('#default-theme').val()
-        },
-        screenBrightness: $('#screen-brightness').val()
+            defaultTheme: $('#default-theme').val(),
+            screenBrightness: brightness
+        }
     };
     console.log('Diagnostic: Saving config:', config);
     $.ajax({
@@ -780,6 +879,7 @@ function saveConfig() {
         data: JSON.stringify(config),
         success: function(response) {
             console.log('Diagnostic: Config saved successfully:', response);
+            setScreenBrightness(brightness);
         },
         error: function(jqXHR, textStatus, errorThrown) {
             console.error('Diagnostic: Error saving config:', textStatus, errorThrown, 'Response:', jqXHR.responseText);
@@ -793,11 +893,27 @@ function loadConfig() {
         console.log('Diagnostic: Config loaded:', data);
         try {
             if (data && data.theme) {
-                $('#auto-theme-toggle').prop('checked', data.theme.autoTheme === 'on').parent().toggleClass('on', data.theme.autoTheme === 'on');
-                $('#default-theme').val(data.theme.defaultTheme || 'light').prop('disabled', data.theme.autoTheme === 'on').css('opacity', data.theme.autoTheme === 'on' ? 0.5 : 1);
-                $('#dark-mode-toggle').prop('checked', data.theme.darkMode === 'on').parent().toggleClass('on', data.theme.darkMode === 'on');
+                const darkMode = data.theme.darkMode === 'on';
+                const autoTheme = data.theme.autoTheme === 'on';
+                const defaultTheme = data.theme.defaultTheme || 'light';
+                let brightness = data.theme.screenBrightness || 'medium';
 
-                if (data.theme.autoTheme === 'on') {
+                // Ensure brightness is within valid range
+                brightness = ['low', 'medium', 'high'].includes(brightness) ? brightness : 'medium';
+                console.log(`Diagnostic: Parsed settings - darkMode: ${darkMode}, autoTheme: ${autoTheme}, defaultTheme: ${defaultTheme}, brightness: ${brightness}`);
+
+                // Apply toggle states
+                $('#dark-mode-toggle').prop('checked', darkMode).parent().toggleClass('on', darkMode);
+                $('#auto-theme-toggle').prop('checked', autoTheme).parent().toggleClass('on', autoTheme);
+                $('#default-theme').val(defaultTheme).prop('disabled', autoTheme).css('opacity', autoTheme ? 0.5 : 1);
+
+                // Apply brightness button state
+                $('.brightness-btn').removeClass('active');
+                $(`.brightness-btn[data-brightness="${brightness}"]`).addClass('active');
+                setScreenBrightness(brightness);
+
+                // Apply theme based on autoTheme setting
+                if (autoTheme) {
                     console.log('Diagnostic: Auto-theme enabled, checking sunrise/sunset');
                     if ($('#sunrise').text() !== '---' && $('#sunset').text() !== '---') {
                         updateThemeBasedOnTime($('#sunrise').text(), $('#sunset').text());
@@ -810,16 +926,8 @@ function loadConfig() {
                     }
                 } else {
                     console.log('Diagnostic: Auto-theme disabled, applying default theme');
-                    applyDefaultTheme(data.theme.defaultTheme || 'light');
+                    applyDefaultTheme(defaultTheme);
                 }
-
-                let brightness = parseInt(data.screenBrightness, 10) || 50;
-                brightness = Math.max(10, Math.min(100, brightness));
-                console.log(`Diagnostic: Applying screen brightness: ${brightness}%`);
-                $('#screen-brightness').val(brightness).css('--value', brightness + '%');
-                $('#screen-brightness-value').text(brightness + '%');
-                $('body').css('filter', `brightness(${brightness}%)`);
-                $('body')[0].offsetHeight;
             } else {
                 console.warn('Diagnostic: No theme data in config, using defaults');
                 applyDefaultSettings();
@@ -843,7 +951,7 @@ function loadScenes(retryCount = 3, delay = 1000) {
         try {
             sceneConfigs = typeof data === 'string' ? JSON.parse(data) : data;
             console.log('Diagnostic: Scenes loaded:', sceneConfigs);
-            checkActiveScene(); // Initial check after loading scenes
+            checkActiveScene();
         } catch (e) {
             console.error('Diagnostic: Error parsing /get_scenes:', e);
         }
@@ -873,16 +981,14 @@ const debouncedCheckActiveScene = debounce(function() {
             const relayStates = typeof relayResponse[0] === 'string' ? JSON.parse(relayResponse[0]) : relayResponse[0];
             console.log('Diagnostic: Checking active scene - PCA states:', pcaStates, 'Relay states:', relayStates);
 
-            // Check if current active scene is still valid
             let isCurrentSceneValid = false;
             if (currentActiveScene && sceneConfigs[currentActiveScene]) {
                 const sceneConfig = sceneConfigs[currentActiveScene];
                 isCurrentSceneValid = true;
 
-                // Check PCA9685 channels
                 if (sceneConfig.pca9685) {
                     Object.keys(sceneConfig.pca9685).forEach(channel => {
-                        if (['3', '9'].includes(channel)) return; // Skip excluded channels
+                        if (['3', '9'].includes(channel)) return;
                         const sceneValue = sceneConfig.pca9685[channel];
                         const currentValue = parseInt(pcaStates[channel]) || 0;
                         if (Math.abs(sceneValue - currentValue) > 2) {
@@ -891,7 +997,6 @@ const debouncedCheckActiveScene = debounce(function() {
                     });
                 }
 
-                // Check relays
                 if (sceneConfig.relays) {
                     Object.keys(sceneConfig.relays).forEach(channel => {
                         const sceneValue = sceneConfig.relays[channel];
@@ -902,7 +1007,6 @@ const debouncedCheckActiveScene = debounce(function() {
                     });
                 }
 
-                // Ensure unspecified channels are off
                 if (isCurrentSceneValid) {
                     Object.keys(pcaStates).forEach(channel => {
                         if (['3', '9'].includes(channel)) return;
@@ -924,22 +1028,19 @@ const debouncedCheckActiveScene = debounce(function() {
                 }
             }
 
-            // If current scene is invalid, deactivate it
             if (!isCurrentSceneValid && currentActiveScene) {
                 console.log(`Diagnostic: Current scene ${currentActiveScene} no longer valid, deactivating`);
                 $('.scene-btn').removeClass('active');
                 currentActiveScene = null;
             }
 
-            // If no active scene, check for a new match
             if (!currentActiveScene) {
                 let newActiveScene = null;
                 Object.keys(sceneConfigs).forEach(scene => {
-                    if (scene === currentActiveScene) return; // Skip already checked scene
+                    if (scene === currentActiveScene) return;
                     const sceneConfig = sceneConfigs[scene];
                     let isMatch = true;
 
-                    // Check PCA9685 channels
                     if (sceneConfig.pca9685) {
                         Object.keys(sceneConfig.pca9685).forEach(channel => {
                             if (['3', '9'].includes(channel)) return;
@@ -951,7 +1052,6 @@ const debouncedCheckActiveScene = debounce(function() {
                         });
                     }
 
-                    // Check relays
                     if (sceneConfig.relays) {
                         Object.keys(sceneConfig.relays).forEach(channel => {
                             const sceneValue = sceneConfig.relays[channel];
@@ -962,7 +1062,6 @@ const debouncedCheckActiveScene = debounce(function() {
                         });
                     }
 
-                    // Ensure unspecified channels are off
                     if (isMatch) {
                         Object.keys(pcaStates).forEach(channel => {
                             if (['3', '9'].includes(channel)) return;
@@ -1022,10 +1121,10 @@ function applyDefaultSettings() {
     $('#dark-mode-toggle').prop('checked', false).parent().removeClass('on');
     $('#auto-theme-toggle').prop('checked', false).parent().removeClass('on');
     $('#default-theme').val('light').prop('disabled', false).css('opacity', 1);
+    $('.brightness-btn').removeClass('active');
+    $(`.brightness-btn[data-brightness="medium"]`).addClass('active');
+    setScreenBrightness('medium');
     applyDefaultTheme('light');
-    $('#screen-brightness').val(50).css('--value', '50%');
-    $('#screen-brightness-value').text('50%');
-    $('body').css('filter', 'brightness(50%)');
 }
 
 function openSettings() {
@@ -1035,16 +1134,13 @@ function openSettings() {
     positionCloseButton();
     $(window).off('resize.closeButton').on('resize.closeButton', positionCloseButton);
 
-    // Bind event listeners when modal opens
     try {
         if (!$('#dark-mode-toggle').length) console.error('Diagnostic: #dark-mode-toggle not found in modal');
         if (!$('#auto-theme-toggle').length) console.error('Diagnostic: #auto-theme-toggle not found in modal');
         if (!$('#default-theme').length) console.error('Diagnostic: #default-theme not found in modal');
-        if (!$('#screen-brightness').length) console.error('Diagnostic: #screen-brightness not found in modal');
 
         $('#settingsModal').off('change', '.settings-toggle input[type="checkbox"]');
         $('#settingsModal').off('change', '#default-theme');
-        $('#settingsModal').off('input', '#screen-brightness');
 
         $('#settingsModal').on('change', '.settings-toggle input[type="checkbox"]', function() {
             const $checkbox = $(this);
@@ -1054,7 +1150,7 @@ function openSettings() {
             if ($checkbox.attr('id') === 'dark-mode-toggle') {
                 console.log('Diagnostic: Toggling dark mode:', $checkbox.prop('checked'));
                 $('body').toggleClass('dark-mode', $checkbox.prop('checked'));
-                saveConfig();
+                debouncedSaveConfig();
             }
             if ($checkbox.attr('id') === 'auto-theme-toggle') {
                 console.log('Diagnostic: Toggling auto-theme:', $checkbox.prop('checked'));
@@ -1073,7 +1169,7 @@ function openSettings() {
                     $('#default-theme').prop('disabled', false).css('opacity', 1);
                     applyDefaultTheme($('#default-theme').val());
                 }
-                saveConfig();
+                debouncedSaveConfig();
             }
         });
 
@@ -1082,26 +1178,7 @@ function openSettings() {
             if (!$('#auto-theme-toggle').prop('checked')) {
                 applyDefaultTheme($(this).val());
             }
-            saveConfig();
-        });
-
-        $('#settingsModal').on('input', '#screen-brightness', function() {
-            const value = parseInt(this.value, 10);
-            console.log('Diagnostic: Screen brightness input:', value);
-            if (isNaN(value) || value < 10 || value > 100) {
-                console.warn('Diagnostic: Invalid brightness value:', value, 'Resetting to 50');
-                this.value = 50;
-                $('#screen-brightness-value').text('50%');
-                $('body').css('filter', 'brightness(50%)');
-                this.style.setProperty('--value', '50%');
-            } else {
-                $('#screen-brightness-value').text(value + '%');
-                $('body').css('filter', `brightness(${value}%)`);
-                this.style.setProperty('--value', value + '%');
-            }
-            $('body')[0].offsetHeight;
-            console.log('Diagnostic: Set screen brightness to', value + '%');
-            saveConfig();
+            debouncedSaveConfig();
         });
     } catch (e) {
         console.error('Diagnostic: Error binding settings event listeners:', e);
@@ -1149,9 +1226,9 @@ function rampFaders() {
     let currentStep = 0;
 
     console.log('Diagnostic: Starting fader ramp polling');
-    $('.scene-btn').removeClass('active'); // Clear active state immediately
+    $('.scene-btn').removeClass('active');
     currentActiveScene = null;
-    checkActiveScene(); // Immediate check
+    checkActiveScene();
     const interval = setInterval(() => {
         $.get('/get_pca_states', function(data) {
             try {
@@ -1179,7 +1256,7 @@ function rampFaders() {
                         toggleSlider.removeClass('on');
                     }
                 });
-                checkActiveScene(); // Check during ramping
+                checkActiveScene();
             } catch (e) {
                 console.error('Diagnostic: Error parsing /get_pca_states during ramp:', e);
             }

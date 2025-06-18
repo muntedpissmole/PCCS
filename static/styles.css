@@ -659,6 +659,17 @@ body:not(.dark-mode) .settings-tabs .tab-btn {
     box-shadow: 8px 8px 12px #1a1a1a, -4px -4px 8px rgba(63, 63, 63, 0.6);
 }
 
+body:not(.dark-mode) .settings-tabs .tab-btn.active {
+    background: var(--primary-color); /* #00b7eb */
+    border-color: var(--primary-color);
+    color: #e0e0e0;
+    box-shadow: 8px 8px 12px rgba(100, 100, 100, 0.4), -4px -4px 8px rgba(220, 220, 220, 0.8);
+}
+
+body.dark-mode .settings-tabs .tab-btn.active {
+    box-shadow: 8px 8px 12px #1a1a1a, -4px -4px 8px rgba(63, 63, 63, 0.6);
+}
+
 .tab-btn:hover {
     transform: translateY(-2px);
     box-shadow: 8px 8px 12px #1a1a1a, -4px -4px 8px rgba(58, 58, 58, 0.6), inset 2px 2px 4px rgba(37, 37, 37, 0.7);
@@ -691,7 +702,6 @@ body:not(.dark-mode) .settings-tabs .tab-btn {
     flex-grow: 1;
 }
 
-/* Ensure consistent setting-item layout */
 .setting-item {
     padding: 1rem;
     background: rgba(255, 255, 255, 0.1);
@@ -705,11 +715,7 @@ body:not(.dark-mode) .settings-tabs .tab-btn {
     min-height: 80px;
     position: relative;
     overflow: visible;
-}
-
-body:not(.dark-mode) .setting-item {
-    background: rgba(255, 255, 255, 0.3);
-    box-shadow: 4px 4px 8px rgba(120, 120, 120, 0.3), -2px -2px 6px rgba(200, 200, 200, 0.6);
+    min-height: 100px;
 }
 
 .setting-item span {
@@ -720,96 +726,76 @@ body:not(.dark-mode) .setting-item {
     align-items: center;
 }
 
-/* Range Slider */
-.range-slider {
-    -webkit-appearance: none;
-    width: 200px;
-    height: 1.2rem;
-    background: linear-gradient(to right, #00b7eb 0%, #00b7eb var(--value, 0%), #2a2a2a var(--value, 0%), #2a2a2a 100%);
+body:not(.dark-mode) .setting-item {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: 4px 4px 8px rgba(120, 120, 120, 0.3), -2px -2px 6px rgba(200, 200, 200, 0.6);
+}
+
+/* Specific layout for brightness setting */
+.brightness-setting {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.brightness-setting span {
+    font-weight: 500;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.brightness-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between; /* Changed to space-between for balanced spacing */
+}
+
+.brightness-btn {
+    background: var(--glass-bg);
+    border: 2px solid var(--border-color);
     border-radius: 0.6rem;
-    outline: none;
+    padding: 0.8rem 1rem;
+    color: var(--text-color);
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    box-shadow: inset 2px 2px 4px rgba(120, 120, 120, 0.3), inset -2px -2px 4px rgba(200, 200, 200, 0.6);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+    box-shadow: var(--shadow-out);
+    flex: 1; /* Ensure buttons are equal width */
+    text-align: center;
+    touch-action: manipulation;
 }
 
-body.dark-mode .range-slider {
-    background: linear-gradient(to right, #00b7eb 0%, #00b7eb var(--value, 0%), #2a2a2a var(--value, 0%), #2a2a2a 100%);
-    box-shadow: inset 4px 4px 8px #1f1f1f, inset -4px -4px 8px rgba(58, 58, 58, 0.5);
+.brightness-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 6px 6px 10px rgba(100, 100, 100, 0.4), -2px -2px 6px rgba(220, 220, 220, 0.7);
 }
 
-body:not(.dark-mode) .range-slider {
-    background: linear-gradient(to right, #00b7eb 0%, #00b7eb var(--value, 0%), #e8e8e8 var(--value, 0%), #e8e8e8 100%);
-    box-shadow: inset 2px 2px 4px rgba(120, 120, 120, 0.3), inset -2px -2px 4px rgba(200, 200, 200, 0.6);
+body.dark-mode .brightness-btn:hover {
+    box-shadow: 6px 6px 10px #1f1f1f, -2px -2px 6px rgba(58, 58, 58, 0.5);
 }
 
-/* Range Slider Thumb (Retaining Updated Styles to Match Lighting Slider) */
-.range-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 3rem;
-    height: 3rem;
-    background: #d0d0d0;
-    border-radius: 50%;
-    border: 2px solid rgba(0, 183, 235, 0.4);
-    cursor: pointer;
-    box-shadow: 6px 6px 12px rgba(100, 100, 100, 0.3), -4px -4px 8px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.3);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+.brightness-btn:active {
+    transform: translateY(2px);
+    box-shadow: inset 2px 2px 4px rgba(120, 120, 120, 0.3), inset -2px -2px 4px rgba(200, 200, 200, 0.4);
 }
 
-.range-slider::-moz-range-thumb {
-    width: 3rem;
-    height: 3rem;
-    background: #d0d0d0;
-    border-radius: 50%;
-    border: 2px solid rgba(0, 183, 235, 0.4);
-    cursor: pointer;
-    box-shadow: 6px 6px 12px rgba(100, 100, 100, 0.3), -4px -4px 8px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.3);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+body.dark-mode .brightness-btn:active {
+    box-shadow: inset 2px 2px 4px #1f1f1f, inset -2px -2px 4px rgba(58, 58, 58, 0.5);
 }
 
-.range-slider::-ms-thumb {
-    width: 3rem;
-    height: 3rem;
-    background: #d0d0d0;
-    border-radius: 50%;
-    border: 2px solid rgba(0, 183, 235, 0.4);
-    cursor: pointer;
-    box-shadow: 6px 6px 12px rgba(100, 100, 100, 0.3), -4px -4px 8px rgba(220, 220, 220, 0.7), 0 0 4px rgba(0, 183, 235, 0.3);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+.brightness-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #e0e0e0;
+    box-shadow: 8px 8px 12px rgba(100, 100, 100, 0.4), -4px -4px 8px rgba(220, 220, 220, 0.8);
 }
 
-/* Dark Mode Thumb */
-body.dark-mode .range-slider::-webkit-slider-thumb {
-    background: #1a1a1a;
-    box-shadow: 6px 6px 12px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
-}
-
-body.dark-mode .range-slider::-moz-range-thumb {
-    background: #1a1a1a;
-    box-shadow: 6px 6px 12px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
-}
-
-body.dark-mode .range-slider::-ms-thumb {
-    background: #1a1a1a;
-    box-shadow: 6px 6px 12px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5), 0 0 8px #00b7eb;
-    border: 2px solid rgba(0, 183, 235, 0.5);
-}
-
-/* Hover State */
-.range-slider:hover::-webkit-slider-thumb,
-.range-slider:hover::-moz-range-thumb,
-.range-slider:hover::-ms-thumb {
-    transform: scale(1.1);
-    box-shadow: 8px 8px 14px rgba(100, 100, 100, 0.4), -4px -4px 10px rgba(220, 220, 220, 0.8), 0 0 6px rgba(0, 183, 235, 0.4);
-}
-
-/* Active State */
-.range-slider:active::-webkit-slider-thumb,
-.range-slider:active::-moz-range-thumb,
-.range-slider:active::-ms-thumb {
-    transform: scale(1.1);
-    box-shadow: inset 2px 2px 6px rgba(100, 100, 100, 0.4), inset -2px -2px 6px rgba(220, 220, 220, 0.7), 0 0 8px rgba(0, 183, 235, 0.5);
+body.dark-mode .brightness-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #e0e0e0;
+    box-shadow: 8px 8px 12px #1a1a1a, -4px -4px 8px rgba(63, 63, 63, 0.6);
 }
 
 /* Select Dropdown */
@@ -820,6 +806,7 @@ select {
     border: 2px solid rgba(100, 100, 100, 0.2);
     color: #1a1a1a;
     font-size: 1.1rem;
+    font-family: var(--font-family); /* Add this line */
     box-shadow: 4px 4px 8px rgba(120, 120, 120, 0.3), -2px -2px 6px rgba(200, 200, 200, 0.6);
 }
 
@@ -830,7 +817,12 @@ body.dark-mode select {
     box-shadow: 6px 6px 10px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5);
 }
 
-/* Shutdown Button */
+.setting-item.shutdown-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
 .shutdown-btn {
     background: #FF6666;
     border: 2px solid rgba(255, 102, 102, 0.5);
@@ -842,6 +834,8 @@ body.dark-mode select {
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 6px 6px 10px #1f1f1f, -4px -4px 8px rgba(58, 58, 58, 0.5);
+    width: auto;
+    margin: 0;
 }
 
 body:not(.dark-mode) .shutdown-btn {
@@ -930,4 +924,28 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover {
 #tank_level.error {
     color: #FF6666;
     font-weight: bold;
+}
+
+/* Disabled State for Sliders, Toggles, and Scene Buttons */
+.control-item.disabled input[type="range"][orient="vertical"],
+.control-item.disabled .toggle-slider,
+.scene-btn.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    background: #666 !important;
+    cursor: not-allowed;
+}
+
+.control-item.disabled .brightness-value.error,
+#tank_level.error,
+#battery_level.error,
+#temperature.error {
+    color: #FF6666;
+    font-weight: bold;
+}
+
+.scene-btn.disabled:hover,
+.control-item.disabled input[type="range"][orient="vertical"]::-webkit-slider-thumb:hover,
+.control-item.disabled .toggle-slider:hover {
+    transform: none;
 }

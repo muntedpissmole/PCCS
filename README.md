@@ -4,14 +4,16 @@
 The Pissmole Camping Control System (PCCS) is a Raspberry Pi-based control system designed to manage camper trailer electronics. It controls dimmable lighting and relays, lighting scenes that can be executed on time of sunset/sunrise offset or fixed times, general purpose relays, GPS for sunset/sunrise/date/time and coordinates calculations, reed switch monitoring for panel doors and drawers and triggering of lighting channels or scenes. It also displys environmental data such as temperature, battery voltage, current time, sunset/sunrise times and water tank level with a user-friendly interface featuring a neomorphism theme with dark and light options.
 
 ## Installation
-This project has been developed for Raspberry Pi 5 Bookworm. It runs on Flask in a venv.
+This project has been developed for Raspberry Pi Bookworm. It runs on Flask in a venv.
 Confirm Flask and venv modules are installed:
 ```
 sudo apt install python3 python3-venv python3-pip -y
 ```
 
-Create virtual environment called venv:
+Create your folder then create virtual environment:
 ```
+mkdir ~/pccs
+cd ~/pccs
 python3 -m venv venv
 ```
 
@@ -35,7 +37,7 @@ Or install as a service to start with the RPI.
 
 ## Hardware requirements:
 ### Backend:
-- RPI 5
+- Raspberry Pi
 - Adafruit PCA9685 on I2C channel 40 and IRF540 mosfet driver boards to run your LEDs
 - Adafruit Ultimate GPS Breakout PA1616S
 - 2 x ADS1115 4 channel I2C analog to digital converter at addresses 48 and 49. I used solderable breadboard with jumpers
@@ -80,6 +82,7 @@ See config.json for lighting, relay and reed switch connections.
 
 ### Beta 1 (In Development)
 - Implementation of scene editor.
+- Better handling of disconnected hardware.
 - Bug fixes, graphical and functionality refinement.
 
 ### Beta 2

@@ -159,7 +159,8 @@
                 "pca9685:1",
                 "pca9685:2",
                 "pca9685:3"
-            ]
+            ],
+            "display": false
         },
         "24": {
             "name": "Storage Panel",
@@ -168,15 +169,17 @@
             "trigger_channels": [
                 "pca9685:5",
                 "pca9685:6"
-            ]
+            ],
+            "display": true
         },
         "25": {
-            "name": "Rear Drawers",
+            "name": "Rear Drawer",
             "type": "sensor",
             "state": "closed",
             "trigger_channels": [
                 "pca9685:10"
-            ]
+            ],
+            "display": true
         }
     },
     "relay_states": {
@@ -187,8 +190,8 @@
     },
     "theme": {
         "darkMode": "on",
-        "autoTheme": "off",
+        "autoTheme": "on",
         "defaultTheme": "dark",
-        "screenBrightness": "100"
+        "screenBrightness": "medium"
     }
 }
